@@ -1,0 +1,18 @@
+# Security
+.env
+token.json
+Credentials.json
+credentials.json
+
+# Python Environments
+venv/
+__pycache__/
+*.pyc
+
+# Editor Backups
+*~
+
+# OS Files
+gitsteps.txt
+.DS_Store
+Thumbs.db

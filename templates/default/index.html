@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Center</title>
+    <style>
+        body { 
+            background-color: #121212; 
+            color: #fff; 
+            font-family: sans-serif; 
+            margin: 0; 
+            padding: 20px;
+            height: 100vh; 
+            box-sizing: border-box;
+        }
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            height: 100%;
+        }
+        .panel {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        .forecast-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .day {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            text-align: center;
+            border-radius: 5px;
+        }
+        .alert-box {
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="panel">
+            <h2>Upcoming Events</h2>
+            <ul>
+                {% for event in events %}
+                    {% set start = event.start.get('dateTime', event.start.get('date')) %}
+                    <li><strong>{{ event.summary }}</strong><br> {{ start }}</li>
+                {% else %}
+                    <li>No upcoming events found.</li>
+                {% endfor %}
+            </ul>
+
+            {% if weather and weather.clothing %}
+            <h2>Today's Outfits</h2>
+            <ul>
+                {% for item in weather.clothing %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+
+        <div class="panel">
+            <h2>5-Day Forecast</h2>
+            {% if weather %}
+                <div class="forecast-grid">
+                    {% for day in weather.daily %}
+                        <div class="day">
+                            <strong>{{ day.name }}</strong><br>
+                            H: {{ day.high }}&deg; | L: {{ day.low }}&deg;<br>
+                            Rain: {{ day.pop }}%
+                        </div>
+                    {% endfor %}
+                </div>
+
+                {% if weather.show_radar %}
+                <h2>Local Radar</h2>
+                <div id="radar-container" style="height: 300px; background: #333; border-radius: 5px; position: relative;">
+                    </div>
+                {% endif %}
+
+                {% if weather.alerts %}
+                <div class="alerts">
+                    {% for alert in weather.alerts %}
+                        <div class="alert-box">{{ alert.event }}: {{ alert.headline }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
