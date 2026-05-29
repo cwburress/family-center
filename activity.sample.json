@@ -1,0 +1,22 @@
+{
+  "Monday": {
+    "Child01": "Art",
+    "Child02": "Library"
+  },
+  "Tuesday": {
+    "Child01": "Computer Lab",
+    "Child02": "Art"
+  },
+  "Wednesday": {
+    "Child01": "Music",
+    "Child02": "Computer Lab"
+  },
+  "Thursday": {
+    "Child01": "PE",
+    "Child02": "Music"
+  },
+  "Friday": {
+    "Child01": "Library",
+    "Child02": "PE"
+  }
+}

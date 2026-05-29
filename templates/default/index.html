@@ -63,8 +63,9 @@
             display: grid;
             grid-template-columns: 1fr 1.5fr 1.5fr;
             gap: 20px;
-            flex: 2.6; /* Rebalanced to stop bottom bleed */
+            flex: 2.8; /* Increased to give the extra boxes more vertical room */
             min-height: 0; /* Forces internal scrolling instead of pushing layout down */
+            overflow: hidden; /* Hard stop to enforce the 40px container gap */
         }
 
         /* Left Column: Time, Lunch, Clothing */
@@ -90,7 +91,7 @@
         .time-box span { font-size: 1.5rem; margin-left: 8px; margin-top: 25px; }
         
         .lunch-box { 
-            flex: 2.5; /* Takes up the lion's share of the vertical space */
+            flex: 1.8; /* Scaled back to make room for activity box */
             display: flex; 
             flex-direction: column;
             cursor: pointer;
@@ -98,6 +99,13 @@
         }
         .lunch-box:active {
             transform: scale(0.98); /* Slight physical press effect for touch screens */
+        }
+        
+        .activity-box {
+            flex: 0.7;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         /* Lunch Modal Overlay */
@@ -159,7 +167,7 @@
         .bottom-section {
             display: grid;
             gap: 20px;
-            flex: 1.4; /* Rebalanced to give the large weather text room to breathe */
+            flex: 1.2; /* Scaled back slightly to balance the top section */
             min-height: 0; /* Forces internal scrolling instead of pushing layout down */
         }
 
@@ -287,8 +295,23 @@
                     </div>
                 </div>
                 
+                <div class="panel activity-box">
+                    <h3 style="margin-bottom: 5px;">School Activity</h3>
+                    <div style="font-size: 1.05rem; color: #3c4043; line-height: 1.4;">
+                        {% if activity is string %}
+                            <span style="color: #1a73e8; font-weight: 600;">{{ activity }}</span>
+                        {% elif activity %}
+                            {% for child, act in activity.items() %}
+                                <div style="margin-bottom: 4px;"><strong>{{ child }}:</strong> <span style="color: #1a73e8; font-weight: 600;">{{ act }}</span></div>
+                            {% endfor %}
+                        {% else %}
+                            <span style="color: #70757a; font-style: italic;">None</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
                 <div class="panel clothing-box">
-                    <h3>What do I wear?</h3>
+                    <h3>What Do I Wear?</h3>
                     {% if weather and weather.clothing %}
                         <ul style="margin:0; padding-left:20px; font-size: 0.95rem;">
                         {% for item in weather.clothing %}
@@ -313,9 +336,11 @@
                             {% if day.events %}
                                 <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.9rem;">
                                 {% for e in day.events %}
-                                    <li style="margin-bottom: 8px; line-height: 1.2;">
-                                        <span style="color: #1a73e8; font-weight: 500; font-size: 0.8rem; margin-right: 5px;">{{ e.time_str }}</span>
-                                        <span style="color: #3c4043;">{{ e.summary }}</span>
+                                    <li style="margin-bottom: 10px; line-height: 1.2; cursor: pointer; padding: 6px; border-radius: 6px; transition: background 0.2s; {% if e.time_str == 'All day' %}background-color: rgba(26, 115, 232, 0.12);{% endif %}" onmousedown="this.style.background='rgba(0,0,0,0.05)'" onmouseup="this.style.background='{% if e.time_str == 'All day' %}rgba(26, 115, 232, 0.12){% else %}transparent{% endif %}'" onclick="openEventModal(this)" data-summary="{{ e.summary | e }}" data-start="{{ e.time_str }}" data-end="{{ e.end_time_str }}" data-loc="{{ e.location | e }}" data-desc="{{ e.description | e }}">
+                                        <div style="color: #1a73e8; font-weight: 600; font-size: 0.75rem; margin-bottom: 2px;">
+                                            {{ e.time_str }}{% if e.end_time_str %} - {{ e.end_time_str }}{% endif %}
+                                        </div>
+                                        <div style="color: #3c4043; font-weight: 500;">{{ e.summary }}</div>
                                     </li>
                                 {% endfor %}
                                 </ul>
@@ -335,17 +360,18 @@
                     {% if events and events.future %}
                         {% for event in events.future %}
                             {% set show_date = loop.index0 == 0 or event.full_date != events.future[loop.index0 - 1].full_date %}
-                            <tr>
+                            <tr {% if event.time_str == 'All day' %}style="background-color: rgba(26, 115, 232, 0.08);"{% endif %}>
                                 <td class="date-col {% if event.is_today %}today{% endif %}">
                                     {% if show_date %}
                                         <div class="day-str">{{ event.month_day_str }}</div>
                                         <div class="day-num">{{ event.day_num }}</div>
                                     {% endif %}
                                 </td>
-                                <td class="time-col">
-                                    <span class="dot"></span>{{ event.time_str }}
+                                <td class="time-col" style="width: 120px;">
+                                    <div><span class="dot"></span>{{ event.time_str }}</div>
+                                    {% if event.end_time_str %}<div style="margin-left: 18px; font-size: 0.75rem; color: #9aa0a6;">to {{ event.end_time_str }}</div>{% endif %}
                                 </td>
-                                <td class="event-col">
+                                <td class="event-col" style="cursor: pointer; padding-left: 10px;" onmousedown="this.style.opacity='0.6'" onmouseup="this.style.opacity='1'" onclick="openEventModal(this)" data-summary="{{ event.summary | e }}" data-start="{{ event.time_str }}" data-end="{{ event.end_time_str }}" data-loc="{{ event.location | e }}" data-desc="{{ event.description | e }}">
                                     {{ event.summary }}
                                 </td>
                             </tr>
@@ -374,9 +400,9 @@
                             </div>
                             
                             {% set forecast = day.short_forecast | lower %}
-                            <div style="position: absolute; top: 10px; right: 25px; font-size: clamp(3rem, 4.5vw, 5.5rem); line-height: 1;">
-                                {% if 'rain' in forecast or 'shower' in forecast %}🌧️
-                                {% elif 'storm' in forecast or 'thunder' in forecast %}⛈️
+                            <div style="position: absolute; top: 10px; right: 25px; font-size: clamp(2.25rem, 3.4vw, 4.1rem); line-height: 1;">
+                                {% if day.rain_chance|int >= 40 and ('storm' in forecast or 'thunder' in forecast) %}⛈️
+                                {% elif day.rain_chance|int >= 30 %}🌧️
                                 {% elif 'cloud' in forecast or 'overcast' in forecast %}☁️
                                 {% elif 'partly' in forecast %}⛅
                                 {% else %}☀️{% endif %}
@@ -439,6 +465,58 @@
         </div>
     </div>
 
+    <div id="event-modal-overlay" class="modal-overlay" onclick="this.style.display='none'">
+        <div class="lunch-modal" onclick="event.stopPropagation()" style="max-width: 500px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 12px; margin-bottom: 15px;">
+                <div>
+                    <h2 id="em-title" style="margin: 0 0 5px 0; color: #3c4043; font-size: 1.4rem;">Event Title</h2>
+                    <div id="em-time" style="color: #1a73e8; font-weight: 600; font-size: 0.95rem;">Time</div>
+                </div>
+                <button onclick="document.getElementById('event-modal-overlay').style.display='none'" style="background: none; border: none; font-size: 2rem; line-height: 1; color: #9aa0a6; cursor: pointer; padding: 0; margin-left: 15px;">&times;</button>
+            </div>
+            
+            <div id="em-loc-container" style="display: none; margin-bottom: 15px;">
+                <strong style="color: #70757a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Location</strong>
+                <div id="em-loc" style="color: #3c4043; font-size: 1.05rem; margin-top: 4px;"></div>
+            </div>
+
+            <div id="em-desc-container" style="display: none;">
+                <strong style="color: #70757a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Details</strong>
+                <div id="em-desc" style="color: #3c4043; font-size: 1.05rem; margin-top: 4px; line-height: 1.5; white-space: pre-wrap;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openEventModal(element) {
+            const ds = element.dataset;
+            document.getElementById('em-title').innerText = ds.summary || 'Busy';
+            
+            let timeStr = ds.start;
+            if (ds.end) timeStr += ' - ' + ds.end;
+            document.getElementById('em-time').innerText = timeStr;
+
+            const locContainer = document.getElementById('em-loc-container');
+            if (ds.loc) {
+                document.getElementById('em-loc').innerText = ds.loc;
+                locContainer.style.display = 'block';
+            } else {
+                locContainer.style.display = 'none';
+            }
+
+            const descContainer = document.getElementById('em-desc-container');
+            if (ds.desc) {
+                // Using innerHTML to preserve basic links/formatting passed from Google
+                document.getElementById('em-desc').innerHTML = ds.desc; 
+                descContainer.style.display = 'block';
+            } else {
+                descContainer.style.display = 'none';
+            }
+
+            document.getElementById('event-modal-overlay').style.display = 'flex';
+        }
+    </script>
+
     <script>
         const clockEl = document.getElementById('live-clock');
         function updateClock() {
@@ -481,6 +559,15 @@
 
         setInterval(updateClock, 1000);
         updateClock();
+
+        // Refresh the DOM to pull the latest cached backend data.
+        // Skips the refresh if actively viewing the fullscreen radar so tracking isn't interrupted.
+        setInterval(() => {
+            const radarPanel = document.getElementById('radar-panel');
+            if (!radarPanel.classList.contains('fullscreen-radar')) {
+                window.location.reload();
+            }
+        }, {{ ui_refresh | default(300000) }}); 
     </script>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

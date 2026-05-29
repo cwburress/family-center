@@ -15,6 +15,7 @@ __pycache__/
 # OS Files
 /static/background.jpg
 menu.json
+activity.json
 gitsteps.txt
 .DS_Store
 Thumbs.db
