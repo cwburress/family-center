@@ -1,0 +1,14 @@
+{
+  "2026-05-28": {
+    "entrees": ["Chicken Tenders", "Turkey & Cheese Sub Sandwich"],
+    "sides": ["Mashed Potatoes", "Fresh Carrot Sticks", "Fresh Pear"]
+  },
+  "2026-05-29": {
+    "entrees": ["Cheesy Beef & Bean Burrito"],
+    "sides": ["Golden Corn", "Broccoli Florets"]
+  },
+  "2026-05-30": {
+    "entrees": [],
+    "sides": []
+  }
+}
