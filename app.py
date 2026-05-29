@@ -58,26 +58,18 @@ def get_events():
         future_events = []
         
         # Build the 4-day focus window starting from today
+        # Build the single-day focus window for Today
         current_time = datetime.datetime.now()
         today_date = current_time.date()
         today_str = today_date.strftime('%Y-%m-%d')
         
-        focus_days = []
-        for i in range(4):
-            target_date = today_date + datetime.timedelta(days=i)
-            if i == 0:
-                day_name = "Today"
-            elif i == 1:
-                day_name = "Tomorrow"
-            else:
-                day_name = target_date.strftime('%A')
-                
-            focus_days.append({
-                'full_date': target_date.strftime('%Y-%m-%d'),
-                'name': day_name,
-                'short_date': target_date.strftime('%b %-d').upper(),
-                'events': []
-            })
+        today_events = []
+        
+        # Setup the display strings for the large Today header
+        today_display = {
+            'month': today_date.strftime('%B').upper(),
+            'day': today_date.strftime('%d')
+        }
 
         for event in raw_events:
             start = event['start'].get('dateTime', event['start'].get('date'))
@@ -123,19 +115,13 @@ def get_events():
                 'location': event.get('location', '')
             }
             
-            # Check if event falls in the next 4 days
-            placed_in_focus = False
-            for day in focus_days:
-                if day['full_date'] == full_date:
-                    day['events'].append(event_data)
-                    placed_in_focus = True
-                    break
-            
-            # If not in the 4-day window, it goes to the future schedule view
-            if not placed_in_focus:
+            # Sort events into Today vs Future Schedule
+            if is_today:
+                today_events.append(event_data)
+            else:
                 future_events.append(event_data)
             
-        return {'focus_days': focus_days, 'future': future_events}
+        return {'today': today_events, 'future': future_events, 'today_display': today_display}
 
     except Exception as e:
         return [{"summary": f"API Error: {e}", "start": {}}]
