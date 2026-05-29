@@ -2,6 +2,9 @@ import datetime
 import json
 import os
 import requests
+import threading
+import time
+from zoneinfo import ZoneInfo
 from flask import Flask, render_template
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -18,6 +21,14 @@ THEME = os.getenv('THEME', 'default')
 CALENDAR_ID = os.getenv('FAMILY_CALENDAR_ID', 'primary')
 HOME_LAT = os.getenv('HOME_LAT', '0.0')
 HOME_LON = os.getenv('HOME_LON', '0.0')
+TIMEZONE = os.getenv('TIMEZONE', 'UTC')
+
+# Polling intervals in minutes (defaults fallback to 5, 5, 60, and 5)
+CAL_POLL = int(os.getenv('CALENDAR_POLL_MINUTES', 5)) * 60
+WX_POLL = int(os.getenv('WEATHER_POLL_MINUTES', 5)) * 60
+LUNCH_POLL = int(os.getenv('LUNCH_POLL_MINUTES', 60)) * 60
+ACTIVITY_POLL = int(os.getenv('ACTIVITY_POLL_MINUTES', 60)) * 60
+UI_REFRESH = int(os.getenv('UI_REFRESH_MINUTES', 5)) * 60000  # milliseconds for JS
 
 # ==========================================
 # GOOGLE CALENDAR LOGIC
@@ -70,13 +81,22 @@ def get_events():
 
         for event in raw_events:
             start = event['start'].get('dateTime', event['start'].get('date'))
+            end_raw = event.get('end', {}).get('dateTime', event.get('end', {}).get('date'))
+            
             try:
                 if 'T' in start:
                     dt = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
+                    dt = dt.astimezone(ZoneInfo(TIMEZONE))
                     time_str = dt.strftime('%-I:%M%p').lower()
                 else:
                     dt = datetime.datetime.fromisoformat(start)
                     time_str = "All day"
+                
+                end_time_str = ""
+                if end_raw and 'T' in end_raw and time_str != "All day":
+                    end_dt = datetime.datetime.fromisoformat(end_raw.replace('Z', '+00:00'))
+                    end_dt = end_dt.astimezone(ZoneInfo(TIMEZONE))
+                    end_time_str = end_dt.strftime('%-I:%M%p').lower()
                 
                 day_num = dt.strftime('%-d')
                 month_day_str = dt.strftime('%b, %a').upper()
@@ -85,6 +105,7 @@ def get_events():
                 
             except Exception:
                 time_str = start
+                end_time_str = ""
                 day_num = ""
                 month_day_str = ""
                 full_date = ""
@@ -93,10 +114,13 @@ def get_events():
             event_data = {
                 'summary': event.get('summary', 'Busy'),
                 'time_str': time_str,
+                'end_time_str': end_time_str,
                 'day_num': day_num,
                 'month_day_str': month_day_str,
                 'full_date': full_date,
-                'is_today': is_today
+                'is_today': is_today,
+                'description': event.get('description', ''),
+                'location': event.get('location', '')
             }
             
             # Check if event falls in the next 4 days
@@ -255,8 +279,13 @@ def get_weather():
 
             if period['isDaytime'] and i + 1 < len(daily_periods_raw):
                 night_period = daily_periods_raw[i+1]
-                day_pop = period.get('probabilityOfPrecipitation', {}).get('value') or 0
-                night_pop = night_period.get('probabilityOfPrecipitation', {}).get('value') or 0
+                
+                # NWS can return None for value, force it to an integer
+                day_pop_raw = period.get('probabilityOfPrecipitation', {})
+                day_pop = int(day_pop_raw.get('value') or 0) if day_pop_raw else 0
+                
+                night_pop_raw = night_period.get('probabilityOfPrecipitation', {})
+                night_pop = int(night_pop_raw.get('value') or 0) if night_pop_raw else 0
                 
                 daily_forecast.append({
                     'name': day_name,
@@ -267,11 +296,14 @@ def get_weather():
                 })
                 skip_next = True
             elif not period['isDaytime']:
+                night_pop_raw = period.get('probabilityOfPrecipitation', {})
+                night_pop = int(night_pop_raw.get('value') or 0) if night_pop_raw else 0
+                
                 daily_forecast.append({
                     'name': 'Tonight',
                     'high': '--',
                     'low': period['temperature'],
-                    'rain_chance': period.get('probabilityOfPrecipitation', {}).get('value') or 0,
+                    'rain_chance': night_pop,
                     'short_forecast': period['shortForecast']
                 })
 
@@ -316,15 +348,49 @@ def get_lunch_menu():
         print(f"Menu Error: {e}")
         return None
 
+def get_school_activity():
+    try:
+        with open('activity.json', 'r') as f:
+            activity_data = json.load(f)
+        
+        today_name = datetime.datetime.now(ZoneInfo(TIMEZONE)).strftime('%A')
+        return activity_data.get(today_name, "None")
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Activity Error: {e}")
+        return "Unavailable"
+
+# ==========================================
+# BACKGROUND POLLING & CACHING
+# ==========================================
+CACHE = {'events': None, 'weather': None, 'lunch': None, 'activity': None}
+
+def poll_service(service_name, fetch_func, interval_seconds):
+    while True:
+        try:
+            CACHE[service_name] = fetch_func()
+            print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {service_name.capitalize()} cache updated.")
+        except Exception as e:
+            print(f"{service_name.capitalize()} Update Error: {e}")
+        time.sleep(interval_seconds)
+
+# Spin up isolated daemon threads so independent failures/delays don't block each other
+threading.Thread(target=poll_service, args=('events', get_events, CAL_POLL), daemon=True).start()
+threading.Thread(target=poll_service, args=('weather', get_weather, WX_POLL), daemon=True).start()
+threading.Thread(target=poll_service, args=('lunch', get_lunch_menu, LUNCH_POLL), daemon=True).start()
+threading.Thread(target=poll_service, args=('activity', get_school_activity, ACTIVITY_POLL), daemon=True).start()
+
 # ==========================================
 # FLASK ROUTES
 # ==========================================
 @app.route('/')
 def index():
-    events = get_events()
-    weather = get_weather()
-    lunch = get_lunch_menu()
-    return render_template(f'{THEME}/index.html', events=events, weather=weather, lunch=lunch, home_lat=HOME_LAT, home_lon=HOME_LON)
+    # Serve from cache, fallback to direct fetch if cache is still initializing on boot
+    events = CACHE['events'] or get_events()
+    weather = CACHE['weather'] or get_weather()
+    lunch = CACHE['lunch'] or get_lunch_menu()
+    activity = CACHE['activity'] or get_school_activity()
+    
+    return render_template(f'{THEME}/index.html', events=events, weather=weather, lunch=lunch, activity=activity, home_lat=HOME_LAT, home_lon=HOME_LON, ui_refresh=UI_REFRESH)
 
 
 if __name__ == '__main__':
