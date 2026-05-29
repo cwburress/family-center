@@ -21,20 +21,13 @@
             overflow: hidden; /* Hard stop on main window scrolling */
         }
 
-        /* Modern, subtle scrollbars */
+        /* Hidden scrollbars for touch interface */
         ::-webkit-scrollbar {
-            width: 8px;
+            display: none;
         }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-            margin: 15px; /* Starts/ends the track right past the 15px corner radius */
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(0, 0, 0, 0.3);
+        
+        * {
+            scrollbar-width: none; /* Firefox fallback */
         }
 
         .dashboard-container {
@@ -61,7 +54,7 @@
         /* --- TOP SECTION (3 Columns) --- */
         .top-section {
             display: grid;
-            grid-template-columns: 1fr 1.5fr 1.5fr;
+            grid-template-columns: 0.85fr 1.65fr 1.5fr; /* Shrunk first column, widened middle */
             gap: 20px;
             flex: 2.8; /* Increased to give the extra boxes more vertical room */
             min-height: 0; /* Forces internal scrolling instead of pushing layout down */
@@ -74,6 +67,7 @@
             flex-direction: column; 
             gap: 15px; 
             margin-right: 20px; /* Stacks with the 20px grid gap to create a 40px visual break */
+            min-height: 0;
         }
         
         .time-box {
@@ -96,6 +90,7 @@
             flex-direction: column;
             cursor: pointer;
             transition: transform 0.1s ease;
+            min-height: 0;
         }
         .lunch-box:active {
             transform: scale(0.98); /* Slight physical press effect for touch screens */
@@ -133,16 +128,46 @@
             flex: 0.8; /* Shrunk down to just fit the bullet points */
         }
 
-        /* Middle Column: 4 Stacked Days */
-        .grid-2x2 {
+        /* Middle Column: Transparent Placeholder & Today View */
+        .middle-split {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr 1fr;
             gap: 15px;
+            min-height: 0;
         }
         
+        .today-date-square {
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+            width: 70px;
+            height: 70px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .panel-header {
+            background-color: #ffffff;
+            color: #000000;
+            font-weight: 700;
+            font-size: 1.5rem;
+            padding: 15px 20px;
+            text-align: center;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            border-top-left-radius: 14px;
+            border-top-right-radius: 14px;
+            letter-spacing: 2px;
+            margin: 0;
+        }
+
         /* Right Column: Schedule */
-        .schedule-box { overflow-y: auto; }
+        .schedule-box { display: flex; flex-direction: column; min-height: 0; }
+        .schedule-content { flex-grow: 1; overflow-y: auto; min-height: 0; }
         
         .calendar-table { width: 100%; border-collapse: collapse; }
         .calendar-table td { padding: 12px 8px; vertical-align: top; border-bottom: 1px solid rgba(0,0,0,0.05); }
@@ -324,20 +349,23 @@
                 </div>
             </div>
 
-            <div class="grid-2x2">
-                {% if events and events.focus_days %}
-                    {% for day in events.focus_days %}
-                    <div class="panel" style="padding: 15px; display: flex; flex-direction: column;">
-                        <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 8px; margin-bottom: 10px;">
-                            <h3 style="font-size: 1.1rem; margin: 0; color: #4a4a4a;">{{ day.name }}</h3>
-                            <span style="font-size: 0.85rem; color: #70757a; font-weight: 500; letter-spacing: 0.5px;">{{ day.short_date }}</span>
-                        </div>
-                        <div style="flex-grow: 1; overflow-y: auto;">
-                            {% if day.events %}
-                                <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.9rem;">
-                                {% for e in day.events %}
-                                    <li style="margin-bottom: 10px; line-height: 1.2; cursor: pointer; padding: 6px; border-radius: 6px; transition: background 0.2s; {% if e.time_str == 'All day' %}background-color: rgba(26, 115, 232, 0.12);{% endif %}" onmousedown="this.style.background='rgba(0,0,0,0.05)'" onmouseup="this.style.background='{% if e.time_str == 'All day' %}rgba(26, 115, 232, 0.12){% else %}transparent{% endif %}'" onclick="openEventModal(this)" data-summary="{{ e.summary | e }}" data-start="{{ e.time_str }}" data-end="{{ e.end_time_str }}" data-loc="{{ e.location | e }}" data-desc="{{ e.description | e }}">
-                                        <div style="color: #1a73e8; font-weight: 600; font-size: 0.75rem; margin-bottom: 2px;">
+            <div class="middle-split">
+                <div></div>
+                
+                <div class="panel" style="padding: 0; display: flex; flex-direction: column; min-height: 0;">
+                    <div class="panel-header">Today</div>
+                    <div style="padding: 15px; flex-grow: 1; overflow-y: auto;">
+                        {% if events and events.today_display %}
+                            <div class="today-date-square">
+                                <div style="color: #1a73e8; font-size: 0.8rem; font-weight: 700; letter-spacing: 1px;">{{ events.today_display.month }}</div>
+                                <div style="color: #3c4043; font-size: 2.2rem; font-weight: 700; line-height: 1;">{{ events.today_display.day }}</div>
+                            </div>
+                            
+                            {% if events.today %}
+                                <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.95rem;">
+                                {% for e in events.today %}
+                                    <li style="margin-bottom: 12px; line-height: 1.3; cursor: pointer; padding: 6px; border-radius: 6px; transition: background 0.2s; {% if e.time_str == 'All day' %}background-color: rgba(26, 115, 232, 0.12);{% endif %}" onmousedown="this.style.background='rgba(0,0,0,0.05)'" onmouseup="this.style.background='{% if e.time_str == 'All day' %}rgba(26, 115, 232, 0.12){% else %}transparent{% endif %}'" onclick="openEventModal(this)" data-summary="{{ e.summary | e }}" data-start="{{ e.time_str }}" data-end="{{ e.end_time_str }}" data-loc="{{ e.location | e }}" data-desc="{{ e.description | e }}">
+                                        <div style="color: #1a73e8; font-weight: 600; font-size: 0.8rem; margin-bottom: 3px;">
                                             {{ e.time_str }}{% if e.end_time_str %} - {{ e.end_time_str }}{% endif %}
                                         </div>
                                         <div style="color: #3c4043; font-weight: 500;">{{ e.summary }}</div>
@@ -345,19 +373,20 @@
                                 {% endfor %}
                                 </ul>
                             {% else %}
-                                <div style="color: #9aa0a6; font-size: 0.85rem; font-style: italic;">No events scheduled</div>
+                                <div style="color: #9aa0a6; font-size: 0.95rem; font-style: italic;">No events scheduled today</div>
                             {% endif %}
-                        </div>
+                        {% else %}
+                            <div style="color: #9aa0a6;">Error loading today's events</div>
+                        {% endif %}
                     </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="panel">Error loading calendar events</div>
-                {% endif %}
+                </div>
             </div>
 
             <div class="panel schedule-box" style="padding: 0;">
-                <table class="calendar-table">
-                    {% if events and events.future %}
+                <div class="panel-header">Schedule</div>
+                <div class="schedule-content">
+                    <table class="calendar-table">
+                        {% if events and events.future %}
                         {% for event in events.future %}
                             {% set show_date = loop.index0 == 0 or event.full_date != events.future[loop.index0 - 1].full_date %}
                             <tr {% if event.time_str == 'All day' %}style="background-color: rgba(26, 115, 232, 0.08);"{% endif %}>
@@ -380,6 +409,7 @@
                         <tr><td colspan="3" style="text-align:center; padding: 20px;">No upcoming events found.</td></tr>
                     {% endif %}
                 </table>
+                </div>
             </div>
         </div>
 
