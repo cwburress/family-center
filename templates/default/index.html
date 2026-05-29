@@ -4,108 +4,649 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Family Center</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
+        /* Pastel & Cream Base Theme with Background Image */
         body { 
-            background-color: #121212; 
-            color: #fff; 
-            font-family: sans-serif; 
+            background: url('/static/background.jpg') no-repeat center center fixed;
+            background-size: cover;
+            background-color: #f4f1ea; /* Fallback */
+            color: #5c5c5c; /* Soft charcoal for readability */
+            font-family: 'Google Sans', sans-serif; 
             margin: 0; 
             padding: 20px;
             height: 100vh; 
             box-sizing: border-box;
+            overflow: hidden; /* Hard stop on main window scrolling */
         }
+
+        /* Modern, subtle scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+            margin: 15px; /* Starts/ends the track right past the 15px corner radius */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
         .dashboard-container {
+            display: flex;
+            flex-direction: column;
+            gap: 40px; /* Expanded to separate top and bottom sections */
+            height: 100%;
+            position: relative; /* Anchors the expanded radar panel to this container */
+        }
+
+        /* Translucent rounded panels */
+        .panel {
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            backdrop-filter: blur(10px); /* Frosted glass effect */
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-sizing: border-box; /* Keeps padding inside the 100% height to prevent bottom clipping */
+        }
+
+        h3 { margin-top: 0; margin-bottom: 15px; color: #4a4a4a; }
+
+        /* --- TOP SECTION (3 Columns) --- */
+        .top-section {
             display: grid;
-            grid-template-columns: 1fr 2fr;
+            grid-template-columns: 1fr 1.5fr 1.5fr;
             gap: 20px;
+            flex: 2.6; /* Rebalanced to stop bottom bleed */
+            min-height: 0; /* Forces internal scrolling instead of pushing layout down */
+        }
+
+        /* Left Column: Time, Lunch, Clothing */
+        .col-left { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            margin-right: 20px; /* Stacks with the 20px grid gap to create a 40px visual break */
+        }
+        
+        .time-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4.5rem;
+            font-weight: bold;
+            color: #333;
+            flex: 1;
+            user-select: none; /* Prevents blue text highlighting on rapid tapping */
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+        .time-box span { font-size: 1.5rem; margin-left: 8px; margin-top: 25px; }
+        
+        .lunch-box { 
+            flex: 2.5; /* Takes up the lion's share of the vertical space */
+            display: flex; 
+            flex-direction: column;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+        .lunch-box:active {
+            transform: scale(0.98); /* Slight physical press effect for touch screens */
+        }
+
+        /* Lunch Modal Overlay */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(8px);
+        }
+        
+        .lunch-modal {
+            background: rgba(244, 241, 234, 0.95); /* Matches the soft cream base theme */
+            width: 80%;
+            max-width: 450px;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+        .clothing-box { 
+            flex: 0.8; /* Shrunk down to just fit the bullet points */
+        }
+
+        /* Middle Column: 4 Stacked Days */
+        .grid-2x2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        /* Right Column: Schedule */
+        .schedule-box { overflow-y: auto; }
+        
+        .calendar-table { width: 100%; border-collapse: collapse; }
+        .calendar-table td { padding: 12px 8px; vertical-align: top; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        
+        /* Date formatting */
+        .date-col { width: 65px; text-align: center; }
+        .day-num { font-size: 1.5rem; font-weight: 400; color: #3c4043; display: inline-block; width: 36px; height: 36px; line-height: 36px; border-radius: 50%; }
+        .day-str { font-size: 0.7rem; font-weight: 500; color: #70757a; margin-bottom: 4px; letter-spacing: 0.5px; }
+        
+        /* Today highlight (Blue Circle) */
+        .today .day-num { background-color: #1a73e8; color: white; font-weight: 500; }
+        .today .day-str { color: #1a73e8; }
+        
+        /* Time & Dot */
+        .time-col { width: 100px; font-size: 0.85rem; color: #70757a; font-weight: 400; }
+        .dot { display: inline-block; width: 10px; height: 10px; background-color: #7986cb; border-radius: 50%; margin-right: 8px; }
+        
+        /* Event Title */
+        .event-col { font-size: 0.9rem; color: #3c4043; font-weight: 500; }
+
+        /* --- BOTTOM SECTION (Dynamic Grid) --- */
+        .bottom-section {
+            display: grid;
+            gap: 20px;
+            flex: 1.4; /* Rebalanced to give the large weather text room to breathe */
+            min-height: 0; /* Forces internal scrolling instead of pushing layout down */
+        }
+
+        /* JS toggles these classes based on radar status */
+        .bottom-with-radar { grid-template-columns: 1fr 1.5fr; } /* Widens the radar column */
+        .bottom-full-width { grid-template-columns: 1fr; }
+
+        .radar-box { padding: 0; overflow: hidden; position: relative; transition: all 0.3s ease; }
+        
+        .fullscreen-radar {
+            position: absolute !important;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 9999 !important;
+            /* Border and border-radius are naturally inherited from the base .panel class */
+        }
+
+        .forecast-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
             height: 100%;
         }
-        .panel {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            overflow: hidden;
-        }
+
         .forecast-grid {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 10px;
-            margin-bottom: 20px;
+            gap: 15px;
+            flex-grow: 1;
         }
-        .day {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 10px;
-            text-align: center;
-            border-radius: 5px;
+        
+        /* When radar is active, collapse grid to 4 days and hide the 5th */
+        .bottom-with-radar .forecast-grid {
+            grid-template-columns: repeat(4, 1fr);
         }
-        .alert-box {
-            background: rgba(255, 0, 0, 0.8);
-            color: white;
+        .bottom-with-radar .day-column:nth-child(5) {
+            display: none;
+        }
+
+        .day-column {
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 10px;
             padding: 15px;
-            margin-top: 15px;
-            border-radius: 5px;
-            font-weight: bold;
-            animation: pulse 2s infinite;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            position: relative; /* Added so we can pin the emoji to the top right */
         }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.7; }
-            100% { opacity: 1; }
+
+        .temp-block {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: auto; /* Shoves the temp block to the bottom */
+            margin-bottom: 10px;
+        }
+        .temp-high-group {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 5px; /* Scaled down to prevent vertical overflow */
+        }
+        .temp-low-group {
+            display: flex;
+            align-items: baseline;
+            margin-top: 15px; /* Scaled down to prevent vertical overflow */
+        }
+        .temp-label-high {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #70757a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-right: 6px;
+            margin-top: 0px; /* Snugged up to perfectly hit the apex of the large number */
+        }
+        .temp-label-low {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #70757a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: -12px; /* Negative margin tucks it under the degree symbol */
+        }
+        .temp-number {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #3c4043;
+            line-height: 0.8;
+        }
+        .temp-slash {
+            font-size: 3.5rem;
+            font-weight: 300;
+            color: #9aa0a6;
+            margin: 0 2px;
         }
     </style>
 </head>
 <body>
     <div class="dashboard-container">
-        <div class="panel">
-            <h2>Upcoming Events</h2>
-            <ul>
-                {% for event in events %}
-                    {% set start = event.start.get('dateTime', event.start.get('date')) %}
-                    <li><strong>{{ event.summary }}</strong><br> {{ start }}</li>
-                {% else %}
-                    <li>No upcoming events found.</li>
-                {% endfor %}
-            </ul>
+        
+        <div class="top-section">
+            
+            <div class="col-left">
+                <div class="panel time-box" id="live-clock">12:00<span>PM</span></div>
+                
+                <div class="panel lunch-box" onclick="document.getElementById('lunch-modal-overlay').style.display = 'flex'">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 15px;">
+                        <h3 style="margin: 0; color: #4a4a4a;">School Lunch</h3>
+                        <span style="font-size: 0.75rem; color: #1a73e8; font-weight: 700; letter-spacing: 0.5px;">TAP FOR FULL MENU</span>
+                    </div>
+                    <div style="flex-grow: 1; overflow-y: auto; font-size: 1.05rem;">
+                        <ul style="margin: 0; padding-left: 20px; color: #3c4043; line-height: 1.6;">
+                            {% if lunch and lunch.entrees %}
+                                {% for item in lunch.entrees %}
+                                    <li>{{ item }}</li>
+                                {% endfor %}
+                            {% else %}
+                                <li style="color: #70757a; font-style: italic;">No menu data for today</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="panel clothing-box">
+                    <h3>What do I wear?</h3>
+                    {% if weather and weather.clothing %}
+                        <ul style="margin:0; padding-left:20px; font-size: 0.95rem;">
+                        {% for item in weather.clothing %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p style="font-size: 0.9rem; font-style: italic; color: #70757a;">Data unavailable</p>
+                    {% endif %}
+                </div>
+            </div>
 
-            {% if weather and weather.clothing %}
-            <h2>Today's Outfits</h2>
-            <ul>
-                {% for item in weather.clothing %}
-                    <li>{{ item }}</li>
-                {% endfor %}
-            </ul>
-            {% endif %}
+            <div class="grid-2x2">
+                {% if events and events.focus_days %}
+                    {% for day in events.focus_days %}
+                    <div class="panel" style="padding: 15px; display: flex; flex-direction: column;">
+                        <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 8px; margin-bottom: 10px;">
+                            <h3 style="font-size: 1.1rem; margin: 0; color: #4a4a4a;">{{ day.name }}</h3>
+                            <span style="font-size: 0.85rem; color: #70757a; font-weight: 500; letter-spacing: 0.5px;">{{ day.short_date }}</span>
+                        </div>
+                        <div style="flex-grow: 1; overflow-y: auto;">
+                            {% if day.events %}
+                                <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.9rem;">
+                                {% for e in day.events %}
+                                    <li style="margin-bottom: 8px; line-height: 1.2;">
+                                        <span style="color: #1a73e8; font-weight: 500; font-size: 0.8rem; margin-right: 5px;">{{ e.time_str }}</span>
+                                        <span style="color: #3c4043;">{{ e.summary }}</span>
+                                    </li>
+                                {% endfor %}
+                                </ul>
+                            {% else %}
+                                <div style="color: #9aa0a6; font-size: 0.85rem; font-style: italic;">No events scheduled</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="panel">Error loading calendar events</div>
+                {% endif %}
+            </div>
+
+            <div class="panel schedule-box" style="padding: 0;">
+                <table class="calendar-table">
+                    {% if events and events.future %}
+                        {% for event in events.future %}
+                            {% set show_date = loop.index0 == 0 or event.full_date != events.future[loop.index0 - 1].full_date %}
+                            <tr>
+                                <td class="date-col {% if event.is_today %}today{% endif %}">
+                                    {% if show_date %}
+                                        <div class="day-str">{{ event.month_day_str }}</div>
+                                        <div class="day-num">{{ event.day_num }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="time-col">
+                                    <span class="dot"></span>{{ event.time_str }}
+                                </td>
+                                <td class="event-col">
+                                    {{ event.summary }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="3" style="text-align:center; padding: 20px;">No upcoming events found.</td></tr>
+                    {% endif %}
+                </table>
+            </div>
         </div>
 
-        <div class="panel">
-            <h2>5-Day Forecast</h2>
-            {% if weather %}
+        <div id="bottom-section" class="bottom-section {% if weather and weather.show_radar %}bottom-with-radar{% else %}bottom-full-width{% endif %}">
+            
+            <div id="radar-panel" class="panel radar-box" style="{% if not (weather and weather.show_radar) %}display: none;{% endif %}">
+                <div id="radar-container" style="height: 100%; width: 100%; z-index: 1;"></div>
+            </div>
+
+            <div class="panel forecast-wrapper">
+                
                 <div class="forecast-grid">
-                    {% for day in weather.daily %}
-                        <div class="day">
-                            <strong>{{ day.name }}</strong><br>
-                            H: {{ day.high }}&deg; | L: {{ day.low }}&deg;<br>
-                            Rain: {{ day.pop }}%
+                    {% if weather and weather.daily %}
+                        {% for day in weather.daily %}
+                        <div class="day-column">
+                            <div style="position: absolute; top: 25px; left: 20px;">
+                                <strong style="text-transform: uppercase; font-size: 1.3rem; letter-spacing: 1px;">{{ day.name }}</strong>
+                            </div>
+                            
+                            {% set forecast = day.short_forecast | lower %}
+                            <div style="position: absolute; top: 10px; right: 25px; font-size: clamp(3rem, 4.5vw, 5.5rem); line-height: 1;">
+                                {% if 'rain' in forecast or 'shower' in forecast %}🌧️
+                                {% elif 'storm' in forecast or 'thunder' in forecast %}⛈️
+                                {% elif 'cloud' in forecast or 'overcast' in forecast %}☁️
+                                {% elif 'partly' in forecast %}⛅
+                                {% else %}☀️{% endif %}
+                            </div>
+
+                            <div class="temp-block">
+                                <div class="temp-high-group">
+                                    <span class="temp-label-high">High</span>
+                                    <span class="temp-number">{{ day.high }}&deg;</span>
+                                </div>
+                                <span class="temp-slash">/</span>
+                                <div class="temp-low-group">
+                                    <span class="temp-number">{{ day.low }}&deg;</span>
+                                    <span class="temp-label-low">Low</span>
+                                </div>
+                            </div>
+                            <div style="font-weight: bold; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                <span style="font-size: 1.4rem;">🌧️</span>
+                                <span style="color: #1a73e8;">{{ day.rain_chance }}%</span>
+                            </div>
                         </div>
-                    {% endfor %}
+                        {% endfor %}
+                    {% else %}
+                        <div style="grid-column: 1 / -1; text-align: center; color: #70757a;">Weather data temporarily unavailable</div>
+                    {% endif %}
                 </div>
+            </div>
+        </div>
 
-                {% if weather.show_radar %}
-                <h2>Local Radar</h2>
-                <div id="radar-container" style="height: 300px; background: #333; border-radius: 5px; position: relative;">
-                    </div>
-                {% endif %}
+    </div>
 
-                {% if weather.alerts %}
-                <div class="alerts">
-                    {% for alert in weather.alerts %}
-                        <div class="alert-box">{{ alert.event }}: {{ alert.headline }}</div>
+    <div id="lunch-modal-overlay" class="modal-overlay" onclick="this.style.display='none'">
+        <div class="lunch-modal" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 12px; margin-bottom: 15px;">
+                <h2 style="margin: 0; color: #3c4043; font-size: 1.4rem;">Today's Menu</h2>
+                <button onclick="document.getElementById('lunch-modal-overlay').style.display='none'" style="background: none; border: none; font-size: 2rem; line-height: 1; color: #9aa0a6; cursor: pointer; padding: 0;">&times;</button>
+            </div>
+            
+            <strong style="color: #1a73e8; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">Entrees</strong>
+            <ul style="margin: 8px 0 20px; padding-left: 20px; color: #3c4043; font-size: 1.1rem; line-height: 1.5;">
+                {% if lunch and lunch.entrees %}
+                    {% for item in lunch.entrees %}
+                        <li>{{ item }}</li>
                     {% endfor %}
-                </div>
+                {% else %}
+                    <li style="color: #70757a; font-style: italic;">None</li>
                 {% endif %}
-            {% endif %}
+            </ul>
+
+            <strong style="color: #1a73e8; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">Sides</strong>
+            <ul style="margin: 8px 0 0; padding-left: 20px; color: #3c4043; font-size: 1.1rem; line-height: 1.5;">
+                {% if lunch and lunch.sides %}
+                    {% for item in lunch.sides %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                {% else %}
+                    <li style="color: #70757a; font-style: italic;">None</li>
+                {% endif %}
+            </ul>
         </div>
     </div>
+
+    <script>
+        const clockEl = document.getElementById('live-clock');
+        function updateClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            let minutes = now.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; 
+            minutes = minutes < 10 ? '0' + minutes : minutes;
+            clockEl.innerHTML = hours + ':' + minutes + '<span>' + ampm + '</span>';
+        }
+        
+        let clicks = [];
+        let isFireDrill = false;
+        // Capture initial backend state
+        const backendShowRadar = {{ 'true' if weather and weather.show_radar else 'false' }};
+
+        clockEl.addEventListener('click', function() {
+            if (isFireDrill) {
+                // Turn off Fire Drill
+                isFireDrill = false;
+                clockEl.style.color = '';
+                toggleRadarView(backendShowRadar);
+                return;
+            }
+
+            const now = Date.now();
+            clicks.push(now);
+            clicks = clicks.filter(t => now - t <= 2000); 
+
+            if (clicks.length >= 5) {
+                // Trigger Fire Drill
+                clicks = [];
+                isFireDrill = true;
+                clockEl.style.color = '#ff3333';
+                toggleRadarView(true);
+            }
+        });
+
+        setInterval(updateClock, 1000);
+        updateClock();
+    </script>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let map;
+        let mapInitialized = false;
+
+        function toggleRadarView(show) {
+            const bottomSection = document.getElementById('bottom-section');
+            const radarPanel = document.getElementById('radar-panel');
+
+            if (show) {
+                bottomSection.classList.remove('bottom-full-width');
+                bottomSection.classList.add('bottom-with-radar');
+                radarPanel.style.display = 'block';
+
+                if (!mapInitialized) {
+                    initRadar();
+                } else {
+                    setTimeout(() => { map.invalidateSize(); }, 100);
+                }
+            } else {
+                bottomSection.classList.remove('bottom-with-radar');
+                bottomSection.classList.add('bottom-full-width');
+                radarPanel.style.display = 'none';
+            }
+        }
+
+        function initRadar() {
+            if (mapInitialized) return;
+            mapInitialized = true;
+
+            const homeLat = {{ home_lat | default(0.0) }};
+            const homeLon = {{ home_lon | default(0.0) }};
+            const defaultZoom = 9;
+            
+            map = L.map('radar-container', {
+                center: [homeLat, homeLon],
+                zoom: defaultZoom,
+                zoomControl: false,       // We will manually add this to position it
+                dragging: true,           
+                scrollWheelZoom: true,    // Enable scroll wheel zooming
+                attributionControl: false 
+            });
+
+            // Add tiny +/- zoom controls to the top right
+            L.control.zoom({ position: 'topright' }).addTo(map);
+
+            // Toggle fullscreen when tapping the map
+
+            // Toggle fullscreen when tapping the map
+            map.on('click', function() {
+                const radarPanel = document.getElementById('radar-panel');
+                radarPanel.classList.toggle('fullscreen-radar');
+                
+                // Force Leaflet to redraw tiles to fill the new screen dimensions
+                setTimeout(() => { map.invalidateSize(); }, 350);
+            });
+
+            // Auto-reset center and zoom after 5 seconds of inactivity
+            let resetTimer;
+
+            function startResetTimer() {
+                clearTimeout(resetTimer);
+                resetTimer = setTimeout(() => {
+                    // setView smoothly returns to both the original coordinates and zoom level
+                    map.setView([homeLat, homeLon], defaultZoom, { animate: true });
+                }, 10000);
+            }
+
+            // Pause the timer if you are actively dragging or zooming
+            map.on('dragstart zoomstart', function() {
+                clearTimeout(resetTimer);
+            });
+
+            // Restart the 5-second countdown when you let go
+            map.on('dragend zoomend', function() {
+                startResetTimer();
+            });
+
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { 
+                attribution: '&copy; Esri' 
+            }).addTo(map);
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+            }).addTo(map);
+
+            const radarLayers = [];
+            const numFrames = 10;
+            const layerNames = [
+                'nexrad-n0q-900913-m45m', 'nexrad-n0q-900913-m40m', 'nexrad-n0q-900913-m35m',
+                'nexrad-n0q-900913-m30m', 'nexrad-n0q-900913-m25m', 'nexrad-n0q-900913-m20m',
+                'nexrad-n0q-900913-m15m', 'nexrad-n0q-900913-m10m', 'nexrad-n0q-900913-m05m',
+                'nexrad-n0q-900913' // Live frame
+            ];
+
+            layerNames.forEach((layerName) => {
+                const layer = L.tileLayer.wms("https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi", {
+                    layers: layerName,
+                    format: 'image/png',
+                    transparent: true,
+                    opacity: 0 // Load hidden
+                }).addTo(map);
+                radarLayers.push(layer);
+            });
+
+            // Animation loop
+            let currentFrame = 0;
+            function animateRadar() {
+                const prevFrame = currentFrame === 0 ? numFrames - 1 : currentFrame - 1;
+                radarLayers[prevFrame].setOpacity(0);
+                radarLayers[currentFrame].setOpacity(0.6);
+
+                const delay = (currentFrame === numFrames - 1) ? 3000 : 500;
+                currentFrame = (currentFrame + 1) % numFrames;
+                setTimeout(animateRadar, delay);
+            }
+            setTimeout(animateRadar, 2000);
+
+            L.circleMarker([homeLat, homeLon], {
+                radius: 4,
+                fillColor: "#00ffff",
+                color: "#ffffff",
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.9
+            }).addTo(map).bindTooltip("Home", {
+                permanent: false,
+                direction: "top"
+            });
+
+            async function fetchAndDrawWarnings() {
+                try {
+                    const response = await fetch('https://api.weather.gov/alerts/active/area/AR');
+                    const data = await response.json();
+                    L.geoJSON(data, {
+                        filter: function(feature) {
+                            const validEvents = ["Tornado Warning", "Severe Thunderstorm Warning", "Flash Flood Warning", "Flood Warning", "Special Weather Statement"];
+                            return validEvents.includes(feature.properties.event) && feature.geometry !== null;
+                        },
+                        style: function(feature) {
+                            const eventType = feature.properties.event;
+                            let outlineColor = "#ffcc00"; let fillColor = "#ffcc00"; let weight = 2;
+                            if (eventType === "Tornado Warning") { outlineColor = "#ff3333"; fillColor = "#ff3333"; weight = 3; } 
+                            else if (eventType === "Flash Flood Warning") { outlineColor = "#4ade80"; fillColor = "#4ade80"; } 
+                            else if (eventType === "Flood Warning") { outlineColor = "#00ffff"; fillColor = "#00ffff"; } 
+                            else if (eventType === "Special Weather Statement") { outlineColor = "#d4a373"; fillColor = "#d4a373"; }
+
+                            return { color: outlineColor, weight: weight, opacity: 0.9, fillColor: fillColor, fillOpacity: 0.15 };
+                        },
+                        onEachFeature: function(feature, layer) {
+                            layer.bindPopup(`
+                                <strong style="color: ${layer.options.color}; font-size: 1.1rem; text-transform: uppercase; text-shadow: none;">${feature.properties.event}</strong><br>
+                                <span style="color: #222; font-weight: bold; text-shadow: none;">${feature.properties.headline}</span><br>
+                                <small style="color: #555; text-shadow: none;">Expires: ${new Date(feature.properties.expires).toLocaleString()}</small>
+                            `);
+                        }
+                    }).addTo(map);
+                } catch (error) { console.error("Failed to fetch warnings:", error); }
+            }
+            fetchAndDrawWarnings();
+        }
+
+        // Initialize state on page load based on backend Jinja variables
+        if (backendShowRadar) {
+            toggleRadarView(true);
+        }
+    </script>
 </body>
 </html>

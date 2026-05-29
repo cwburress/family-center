@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import requests
 from flask import Flask, render_template
@@ -37,11 +38,80 @@ def get_events():
         service = build('calendar', 'v3', credentials=creds)
         now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
         
-        # Pull the next 10 events using the ID from .env
+        # Pull the next 30 events to ensure we have enough for both views
         events_result = service.events().list(calendarId=CALENDAR_ID, timeMin=now,
-                                              maxResults=10, singleEvents=True,
+                                              maxResults=30, singleEvents=True,
                                               orderBy='startTime').execute()
-        return events_result.get('items', [])
+        
+        raw_events = events_result.get('items', [])
+        future_events = []
+        
+        # Build the 4-day focus window starting from today
+        current_time = datetime.datetime.now()
+        today_date = current_time.date()
+        today_str = today_date.strftime('%Y-%m-%d')
+        
+        focus_days = []
+        for i in range(4):
+            target_date = today_date + datetime.timedelta(days=i)
+            if i == 0:
+                day_name = "Today"
+            elif i == 1:
+                day_name = "Tomorrow"
+            else:
+                day_name = target_date.strftime('%A')
+                
+            focus_days.append({
+                'full_date': target_date.strftime('%Y-%m-%d'),
+                'name': day_name,
+                'short_date': target_date.strftime('%b %-d').upper(),
+                'events': []
+            })
+
+        for event in raw_events:
+            start = event['start'].get('dateTime', event['start'].get('date'))
+            try:
+                if 'T' in start:
+                    dt = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
+                    time_str = dt.strftime('%-I:%M%p').lower()
+                else:
+                    dt = datetime.datetime.fromisoformat(start)
+                    time_str = "All day"
+                
+                day_num = dt.strftime('%-d')
+                month_day_str = dt.strftime('%b, %a').upper()
+                full_date = dt.strftime('%Y-%m-%d')
+                is_today = (full_date == today_str)
+                
+            except Exception:
+                time_str = start
+                day_num = ""
+                month_day_str = ""
+                full_date = ""
+                is_today = False
+                
+            event_data = {
+                'summary': event.get('summary', 'Busy'),
+                'time_str': time_str,
+                'day_num': day_num,
+                'month_day_str': month_day_str,
+                'full_date': full_date,
+                'is_today': is_today
+            }
+            
+            # Check if event falls in the next 4 days
+            placed_in_focus = False
+            for day in focus_days:
+                if day['full_date'] == full_date:
+                    day['events'].append(event_data)
+                    placed_in_focus = True
+                    break
+            
+            # If not in the 4-day window, it goes to the future schedule view
+            if not placed_in_focus:
+                future_events.append(event_data)
+            
+        return {'focus_days': focus_days, 'future': future_events}
 
     except Exception as e:
         return [{"summary": f"API Error: {e}", "start": {}}]
@@ -56,11 +126,11 @@ def get_clothing_recommendation(morning_temp, afternoon_temp, will_rain):
     if afternoon_temp >= 80:
         outfit.append("Shorts & T-Shirt")
     elif 70 <= afternoon_temp < 80:
-        outfit.append("Light Pants/Shorts & T-Shirt")
+        outfit.append("Leggings or Shorts & T-Shirt")
     elif 55 <= afternoon_temp < 70:
-        outfit.append("Long Pants & T-Shirt")
+        outfit.append("Leggings & T-Shirt")
     elif 40 <= afternoon_temp < 55:
-        outfit.append("Long Pants & Long Sleeves")
+        outfit.append("Leggings & Long Sleeves")
     else:
         outfit.append("Warm Pants & Heavy Sweater")
 
@@ -74,7 +144,7 @@ def get_clothing_recommendation(morning_temp, afternoon_temp, will_rain):
         outfit.append("Zip-up Hoodie")
 
     if will_rain:
-        outfit.append("Raincoat/Umbrella")
+        outfit.append("Raincoat or Umbrella")
 
     return outfit
 
@@ -192,7 +262,7 @@ def get_weather():
                     'name': day_name,
                     'high': period['temperature'],
                     'low': night_period['temperature'],
-                    'pop': max(day_pop, night_pop),
+                    'rain_chance': max(day_pop, night_pop),
                     'short_forecast': period['shortForecast']
                 })
                 skip_next = True
@@ -201,7 +271,7 @@ def get_weather():
                     'name': 'Tonight',
                     'high': '--',
                     'low': period['temperature'],
-                    'pop': period.get('probabilityOfPrecipitation', {}).get('value') or 0,
+                    'rain_chance': period.get('probabilityOfPrecipitation', {}).get('value') or 0,
                     'short_forecast': period['shortForecast']
                 })
 
@@ -233,13 +303,28 @@ def get_weather():
 
 
 # ==========================================
+# SCHOOL LUNCH LOGIC
+# ==========================================
+def get_lunch_menu():
+    try:
+        with open('menu.json', 'r') as f:
+            menu_data = json.load(f)
+        
+        today_str = datetime.datetime.now().strftime('%Y-%m-%d')
+        return menu_data.get(today_str, None)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Menu Error: {e}")
+        return None
+
+# ==========================================
 # FLASK ROUTES
 # ==========================================
 @app.route('/')
 def index():
     events = get_events()
     weather = get_weather()
-    return render_template(f'{THEME}/index.html', events=events, weather=weather, home_lat=HOME_LAT, home_lon=HOME_LON)
+    lunch = get_lunch_menu()
+    return render_template(f'{THEME}/index.html', events=events, weather=weather, lunch=lunch, home_lat=HOME_LAT, home_lon=HOME_LON)
 
 
 if __name__ == '__main__':
