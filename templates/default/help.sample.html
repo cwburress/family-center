@@ -1,0 +1,54 @@
+<div style="color: #3c4043; line-height: 1.6; font-size: 1.05rem;">
+    <h2 style="margin-top: 0; color: #1a73e8;">Family Center Dashboard Guide</h2>
+    <p>Welcome to the Family Center display. Here is a quick breakdown of how to read the interface and access hidden details.</p>
+
+    <h3 style="color: #4a4a4a; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 5px;">Feature Overview</h3>
+    <ul style="margin-bottom: 20px;">
+        <li style="margin-bottom: 8px;"><strong>Left Panel:</strong> Displays the live clock, today's school lunch/activity, and a clothing recommendation calculated from the day's high and low temperatures.</li>
+        <li style="margin-bottom: 8px;"><strong>Middle Panel (Today):</strong> Highlights events happening exclusively today. All-day events are highlighted in light blue.</li>
+        <li style="margin-bottom: 8px;"><strong>Right Panel (Schedule):</strong> A rolling view of upcoming calendar events for the next few days.</li>
+        <li style="margin-bottom: 8px;"><strong>Bottom Panel (Weather):</strong> Shows the 5-day forecast. If rain or severe weather is in the area, the 5th day will drop off to make room for a live weather radar.</li>
+    </ul>
+
+    <h3 style="color: #4a4a4a; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 5px;">Touch Features</h3>
+    <ul style="margin-bottom: 20px;">
+        <li style="margin-bottom: 8px;"><strong>Event Details:</strong> Tap any event in the <em>Today</em> or <em>Schedule</em> columns to pull up a window with exact times, location data, and full descriptions.</li>
+        <li style="margin-bottom: 8px;"><strong>Full Lunch Menu:</strong> The main screen only shows a preview. Tap the <em>School Lunch</em> box to open the complete list of entrees and sides.</li>
+        <li style="margin-bottom: 8px;"><strong>Fullscreen Map:</strong> When the radar is active, tap anywhere on the map to expand it to fullscreen. Tap it again to return to the normal dashboard view.</li>
+        <li style="margin-bottom: 8px;"><strong>Schedule Auto-Reset:</strong> If you scroll down through the Future Schedule, you don't need to scroll back up. It will automatically snap back to the top after 15 seconds of inactivity.</li>
+    </ul>
+
+    <h3 style="color: #4a4a4a; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 5px;">The "Fire Drill" Radar</h3>
+    <p style="margin-bottom: 30px;">The NEXRAD radar automatically appears based on live NWS precipitation sweeps and active weather alerts. If you want to manually force the radar to open on a clear day (for a drill or to check regional storms), <strong>tap the main clock 5 times rapidly</strong>. The clock text will turn red, and the radar will deploy.</p>
+
+    <hr style="border: 0; border-top: 2px solid rgba(0,0,0,0.1); margin: 30px 0;">
+
+    <h2 style="color: #1a73e8;">Admin Setup: JSON Configuration</h2>
+    <p>The dashboard polling threads check local JSON files for school data. To keep the UI populated, update these files ensuring strict JSON syntax.</p>
+
+    <h3 style="color: #4a4a4a;">menu.json</h3>
+    <p>Top-level keys must be formatted as <code>YYYY-MM-DD</code> strings. The <code>app.py</code> script matches this exactly against the system's current local date. Both <code>entrees</code> and <code>sides</code> must be arrays, even if empty.</p>
+    <pre style="background: rgba(0,0,0,0.04); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.08); overflow-x: auto; font-family: monospace; font-size: 0.95rem;"><code>{
+  "2026-05-01": {
+    "entrees": ["Cheese Filled Breadsticks", "Ham & Cheese Sub"],
+    "sides": ["Sunshine Carrots", "Veggie Medley"]
+  },
+  "2026-05-02": {
+    "entrees": [],
+    "sides": []
+  }
+}</code></pre>
+
+    <h3 style="color: #4a4a4a; margin-top: 25px;">activity.json</h3>
+    <p>Top-level keys are exact string matches for the full day of the week (e.g., "Monday"). The nested dictionary maps the individual display name to their assigned activity.</p>
+    <pre style="background: rgba(0,0,0,0.04); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.08); overflow-x: auto; font-family: monospace; font-size: 0.95rem;"><code>{
+  "Monday": {
+    "Child01": "Art",
+    "Child02": "Library"
+  },
+  "Tuesday": {
+    "Child01": "Computer Lab",
+    "Child02": "Art"
+  }
+}</code></pre>
+</div>

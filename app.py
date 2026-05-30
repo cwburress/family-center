@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+import re
 import requests
 import threading
 import time
@@ -223,6 +224,47 @@ def get_active_alerts(headers):
     return alerts
 
 
+def get_radar_sweep_status():
+    # Uses IEM Mesonet API to check sweep gaps for the local NWS radar
+    radar_id = os.getenv('RADAR_ID', 'SRX') # Default to KSRX (Fort Smith/Alma)
+    end_dt = datetime.datetime.utcnow()
+    start_dt = end_dt - datetime.timedelta(hours=2)
+    
+    url = f"https://mesonet.agron.iastate.edu/json/radar?operation=list&product=N0Q&radar={radar_id}&start={start_dt.strftime('%Y-%m-%dT%H:%M:%SZ')}&end={end_dt.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+    
+    try:
+        resp = requests.get(url, timeout=5)
+        resp.raise_for_status()
+        
+        # Regex pull ISO timestamps regardless of exact JSON schema structure
+        ts_strings = re.findall(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", resp.text)
+        
+        if not ts_strings:
+            return None
+            
+        # Parse, deduplicate, and sort
+        timestamps = sorted(list(set([datetime.datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ") for ts in ts_strings])))
+        
+        if len(timestamps) < 4:
+            return None
+            
+        recent_scans = timestamps[-4:]
+        gaps = [(recent_scans[i] - recent_scans[i-1]).total_seconds() / 60.0 for i in range(1, 4)]
+        
+        # If any recent gap is ~6 mins or less, it's in Precipitation mode
+        if any(gap <= 6.5 for gap in gaps):
+            return True
+            
+        # Cooldown: only return False if definitively back in Clear Air mode
+        if all(gap >= 8.5 for gap in gaps):
+            return False
+            
+        return None # Middle ground, hold previous state or fallback
+    except Exception as e:
+        print(f"Sweep Check Error: {e}")
+        return None
+
+
 def get_weather():
     grid = os.getenv('NWS_GRID')
     user_agent = os.getenv('NWS_USER_AGENT', 'FamilyCenterDashboard/1.0 (admin@localhost)')
@@ -259,9 +301,8 @@ def get_weather():
             if len(daily_forecast) >= 5:
                 break
                 
-            day_name = period['name']
-            if day_name not in ["Today", "Tonight", "Tomorrow"]:
-                day_name = day_name[:3]
+            dt = datetime.datetime.fromisoformat(period['startTime'])
+            day_name = dt.strftime('%a')
 
             if period['isDaytime'] and i + 1 < len(daily_periods_raw):
                 night_period = daily_periods_raw[i+1]
@@ -298,9 +339,20 @@ def get_weather():
 
         # 4. Determine if Radar should be displayed
         show_radar = False
-        # Proxy: 30% or higher chance of rain in the current hour
-        if len(hourly_display) > 0 and hourly_display[0].get('pop', 0) >= 30:
+        
+        # Strategy 1: Active radar sweep timing (Precipitation Mode)
+        if get_radar_sweep_status() is True:
             show_radar = True
+            
+        # Strategy 2: Fallback to NWS PoP and Keywords
+        if not show_radar and len(hourly_display) > 0:
+            current_pop = hourly_display[0].get('pop', 0)
+            current_forecast = daily_forecast[0]['short_forecast'].lower() if len(daily_forecast) > 0 else ""
+            
+            # Trigger on 20% PoP OR explicit forecast keywords
+            if current_pop >= 20 or any(word in current_forecast for word in ['rain', 'shower', 'storm', 'thunder', 'drizzle']):
+                show_radar = True
+
         # Override: Always show radar if there is an active weather warning
         if len(active_alerts) > 0:
             show_radar = True
