@@ -69,58 +69,102 @@ def get_events():
         # Setup the display strings for the large Today header
         today_display = {
             'month': today_date.strftime('%B').upper(),
-            'day': today_date.strftime('%d')
+            'day': today_date.strftime('%d'),
+            'weekday': today_date.strftime('%A').upper()
         }
 
         for event in raw_events:
             start = event['start'].get('dateTime', event['start'].get('date'))
             end_raw = event.get('end', {}).get('dateTime', event.get('end', {}).get('date'))
             
-            try:
-                if 'T' in start:
-                    dt = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
-                    dt = dt.astimezone(ZoneInfo(TIMEZONE))
-                    time_str = dt.strftime('%-I:%M%p').lower()
-                else:
-                    dt = datetime.datetime.fromisoformat(start)
-                    time_str = "All day"
-                
-                end_time_str = ""
-                if end_raw and 'T' in end_raw and time_str != "All day":
-                    end_dt = datetime.datetime.fromisoformat(end_raw.replace('Z', '+00:00'))
-                    end_dt = end_dt.astimezone(ZoneInfo(TIMEZONE))
-                    end_time_str = end_dt.strftime('%-I:%M%p').lower()
-                
-                day_num = dt.strftime('%-d')
-                month_day_str = dt.strftime('%b, %a').upper()
-                full_date = dt.strftime('%Y-%m-%d')
-                is_today = (full_date == today_str)
-                
-            except Exception:
-                time_str = start
-                end_time_str = ""
-                day_num = ""
-                month_day_str = ""
-                full_date = ""
-                is_today = False
-                
-            event_data = {
-                'summary': event.get('summary', 'Busy'),
-                'time_str': time_str,
-                'end_time_str': end_time_str,
-                'day_num': day_num,
-                'month_day_str': month_day_str,
-                'full_date': full_date,
-                'is_today': is_today,
-                'description': event.get('description', ''),
-                'location': event.get('location', '')
-            }
+            span_days = 1
+            if start and end_raw:
+                try:
+                    if 'T' not in start and 'T' not in end_raw:
+                        # All-day event: exclusive end date
+                        s_dt = datetime.datetime.fromisoformat(start)
+                        e_dt = datetime.datetime.fromisoformat(end_raw)
+                        span_days = (e_dt - s_dt).days
+                    else:
+                        # Timed event: inclusive end date
+                        s_date = datetime.datetime.fromisoformat(start.split('T')[0])
+                        e_date = datetime.datetime.fromisoformat(end_raw.split('T')[0])
+                        span_days = (e_date - s_date).days + 1
+                        
+                    if span_days < 1:
+                        span_days = 1
+                except Exception:
+                    span_days = 1
             
-            # Sort events into Today vs Future Schedule
-            if is_today:
-                today_events.append(event_data)
-            else:
-                future_events.append(event_data)
+            for i in range(span_days):
+                try:
+                    if 'T' in start:
+                        dt_orig = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
+                        dt_orig = dt_orig.astimezone(ZoneInfo(TIMEZONE))
+                        dt = dt_orig + datetime.timedelta(days=i)
+                        
+                        if span_days > 1:
+                            if i == 0:
+                                time_str = dt_orig.strftime('%-I:%M%p').lower()
+                            elif i == span_days - 1:
+                                end_dt = datetime.datetime.fromisoformat(end_raw.replace('Z', '+00:00')).astimezone(ZoneInfo(TIMEZONE))
+                                time_str = "Ends " + end_dt.strftime('%-I:%M%p').lower()
+                            else:
+                                time_str = "Ongoing"
+                        else:
+                            time_str = dt.strftime('%-I:%M%p').lower()
+                    else:
+                        dt = datetime.datetime.fromisoformat(start) + datetime.timedelta(days=i)
+                        time_str = "All day"
+                    
+                    full_date = dt.strftime('%Y-%m-%d')
+                    
+                    # If an ongoing multi-day event started before today, skip the past days
+                    if full_date < today_str:
+                        continue
+                        
+                    end_time_str = ""
+                    if end_raw and 'T' in end_raw and span_days == 1:
+                        end_dt = datetime.datetime.fromisoformat(end_raw.replace('Z', '+00:00'))
+                        end_dt = end_dt.astimezone(ZoneInfo(TIMEZONE))
+                        end_time_str = end_dt.strftime('%-I:%M%p').lower()
+                    
+                    day_num = dt.strftime('%-d')
+                    month_str = dt.strftime('%b').upper()
+                    day_name_full = dt.strftime('%A').upper()
+                    is_today = (full_date == today_str)
+                    
+                except Exception:
+                    time_str = start
+                    end_time_str = ""
+                    day_num = ""
+                    month_str = ""
+                    day_name_full = ""
+                    full_date = ""
+                    is_today = False
+                    
+                event_data = {
+                    'summary': event.get('summary', 'Busy'),
+                    'time_str': time_str,
+                    'end_time_str': end_time_str,
+                    'day_num': day_num,
+                    'month_str': month_str,
+                    'day_name_full': day_name_full,
+                    'full_date': full_date,
+                    'is_today': is_today,
+                    'description': event.get('description', ''),
+                    'location': event.get('location', '')
+                }
+                
+                # Sort events into Today vs Future Schedule
+                if is_today:
+                    today_events.append(event_data)
+                else:
+                    future_events.append(event_data)
+                    
+        # Since expanding multi-day events appends them sequentially, resort future events by date.
+        # Python's sort is stable, so timed events keep their original chronological order.
+        future_events.sort(key=lambda x: x['full_date'])
             
         return {'today': today_events, 'future': future_events, 'today_display': today_display}
 
@@ -327,8 +371,8 @@ def get_weather():
                 night_pop = int(night_pop_raw.get('value') or 0) if night_pop_raw else 0
                 
                 daily_forecast.append({
-                    'name': 'Tonight',
-                    'high': '--',
+                    'name': day_name,
+                    'high': afternoon_temp,
                     'low': period['temperature'],
                     'rain_chance': night_pop,
                     'short_forecast': period['shortForecast']
@@ -336,6 +380,20 @@ def get_weather():
 
         # 3. Process Active NWS Alerts for Exact Location
         active_alerts = get_active_alerts(headers)
+
+        # Evaluate siren conditions based on local time
+        play_siren = False
+        current_hour = datetime.datetime.now(ZoneInfo(TIMEZONE)).hour
+        is_quiet_hours = current_hour >= 20 or current_hour < 6
+
+        for alert in active_alerts:
+            event = alert.get('event', '')
+            if event == "Tornado Warning":
+                play_siren = True
+                break
+            elif not is_quiet_hours and event in ["Severe Thunderstorm Warning", "Flash Flood Warning", "Flood Warning"]:
+                play_siren = True
+                break
 
         # 4. Determine if Radar should be displayed
         show_radar = False
@@ -365,7 +423,8 @@ def get_weather():
             "hourly": hourly_display,
             "daily": daily_forecast,
             "alerts": active_alerts,
-            "show_radar": show_radar
+            "show_radar": show_radar,
+            "play_siren": play_siren
         }
     except Exception as e:
         print(f"Weather API Error: {e}")
