@@ -38,6 +38,24 @@
             position: relative; /* Anchors the expanded radar panel to this container */
         }
 
+        .help-link {
+            position: absolute;
+            top: -18px;
+            right: 5px;
+            color: #ffffff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            z-index: 100;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        .help-link:hover {
+            opacity: 1;
+        }
+
         /* Translucent rounded panels */
         .panel {
             background: rgba(255, 255, 255, 0.6);
@@ -296,6 +314,7 @@
 </head>
 <body>
     <div class="dashboard-container">
+        <div class="help-link" onclick="document.getElementById('help-modal-overlay').style.display='flex'">HELP</div>
         
         <div class="top-section">
             
@@ -517,6 +536,18 @@
         </div>
     </div>
 
+    <div id="help-modal-overlay" class="modal-overlay" onclick="this.style.display='none'">
+        <div class="lunch-modal" onclick="event.stopPropagation()" style="max-width: 600px; max-height: 85vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 12px; margin-bottom: 15px;">
+                <h2 style="margin: 0; color: #3c4043; font-size: 1.4rem;">Family Center Guide</h2>
+                <button onclick="document.getElementById('help-modal-overlay').style.display='none'" style="background: none; border: none; font-size: 2rem; line-height: 1; color: #9aa0a6; cursor: pointer; padding: 0; margin-left: 15px;">&times;</button>
+            </div>
+            <div style="color: #3c4043; font-size: 1rem; line-height: 1.6;">
+                {% include 'default/help.html' ignore missing %}
+            </div>
+        </div>
+    </div>
+
     <script>
         function openEventModal(element) {
             const ds = element.dataset;
@@ -591,13 +622,39 @@
         updateClock();
 
         // Refresh the DOM to pull the latest cached backend data.
-        // Skips the refresh if actively viewing the fullscreen radar so tracking isn't interrupted.
+        // Skips the refresh if actively viewing the fullscreen radar or any modals so reading isn't interrupted.
         setInterval(() => {
             const radarPanel = document.getElementById('radar-panel');
-            if (!radarPanel.classList.contains('fullscreen-radar')) {
+            const helpModal = document.getElementById('help-modal-overlay');
+            const lunchModal = document.getElementById('lunch-modal-overlay');
+            const eventModal = document.getElementById('event-modal-overlay');
+            
+            const isRadarFullscreen = radarPanel.classList.contains('fullscreen-radar');
+            const isHelpOpen = helpModal && helpModal.style.display === 'flex';
+            const isLunchOpen = lunchModal && lunchModal.style.display === 'flex';
+            const isEventOpen = eventModal && eventModal.style.display === 'flex';
+
+            if (!isRadarFullscreen && !isHelpOpen && !isLunchOpen && !isEventOpen) {
                 window.location.reload();
             }
         }, {{ ui_refresh | default(300000) }}); 
+
+        // Auto-scroll schedule back to top after 15 seconds of inactivity
+        const scheduleContent = document.querySelector('.schedule-content');
+        let scheduleScrollTimer;
+
+        function resetScheduleScrollTimer() {
+            clearTimeout(scheduleScrollTimer);
+            scheduleScrollTimer = setTimeout(() => {
+                scheduleContent.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 15000);
+        }
+
+        if (scheduleContent) {
+            scheduleContent.addEventListener('scroll', resetScheduleScrollTimer);
+            scheduleContent.addEventListener('touchstart', resetScheduleScrollTimer, {passive: true});
+            scheduleContent.addEventListener('mousedown', resetScheduleScrollTimer);
+        }
     </script>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
