@@ -191,13 +191,29 @@
         .calendar-table td { padding: 12px 8px; vertical-align: top; border-bottom: 1px solid rgba(0,0,0,0.05); }
         
         /* Date formatting */
-        .date-col { width: 65px; text-align: center; }
-        .day-num { font-size: 1.5rem; font-weight: 400; color: #3c4043; display: inline-block; width: 36px; height: 36px; line-height: 36px; border-radius: 50%; }
-        .day-str { font-size: 0.7rem; font-weight: 500; color: #70757a; margin-bottom: 4px; letter-spacing: 0.5px; }
+        .date-col { width: 70px; text-align: center; padding-right: 15px; }
+        .schedule-date-square {
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 10px;
+            padding: 6px;
+            text-align: center;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 5px auto;
+        }
+        .sched-month { color: #1a73e8; font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; line-height: 1; margin-bottom: 2px; }
+        .sched-day { color: #3c4043; font-size: 1.6rem; font-weight: 700; line-height: 1; }
+        .sched-weekday { font-size: 0.65rem; font-weight: 700; color: #70757a; text-transform: uppercase; letter-spacing: 1px; }
         
-        /* Today highlight (Blue Circle) */
-        .today .day-num { background-color: #1a73e8; color: white; font-weight: 500; }
-        .today .day-str { color: #1a73e8; }
+        /* Today highlight */
+        .today .schedule-date-square { background-color: #1a73e8; }
+        .today .sched-month { color: rgba(255, 255, 255, 0.9); }
+        .today .sched-day { color: #ffffff; }
+        .today .sched-weekday { color: #1a73e8; }
         
         /* Time & Dot */
         .time-col { width: 100px; font-size: 0.85rem; color: #70757a; font-weight: 400; }
@@ -316,6 +332,13 @@
     <div class="dashboard-container">
         <div class="help-link" onclick="document.getElementById('help-modal-overlay').style.display='flex'">HELP</div>
         
+        <audio id="weather-siren" src="/static/weather_siren.mp3" preload="auto"></audio>
+        
+        <div id="fire-drill-controls" style="display: none; position: absolute; top: -18px; left: 5px; z-index: 100;">
+            <button onclick="document.getElementById('weather-siren').play()" style="background: rgba(255, 51, 51, 0.9); color: white; border: none; padding: 4px 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.75rem; letter-spacing: 1px; margin-right: 8px;">▶ PLAY SIREN</button>
+            <button onclick="let s = document.getElementById('weather-siren'); s.pause(); s.currentTime = 0;" style="background: rgba(0, 0, 0, 0.6); color: white; border: none; padding: 4px 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.75rem; letter-spacing: 1px;">⏹ STOP</button>
+        </div>
+        
         <div class="top-section">
             
             <div class="col-left">
@@ -324,7 +347,7 @@
                 <div class="panel lunch-box" onclick="document.getElementById('lunch-modal-overlay').style.display = 'flex'">
                     <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 15px;">
                         <h3 style="margin: 0; color: #4a4a4a;">School Lunch</h3>
-                        <span style="font-size: 0.75rem; color: #1a73e8; font-weight: 700; letter-spacing: 0.5px;">TAP FOR FULL MENU</span>
+                        <span style="font-size: 0.75rem; color: #1a73e8; font-weight: 700; letter-spacing: 0.5px;">FULL MENU</span>
                     </div>
                     <div style="flex-grow: 1; overflow-y: auto; font-size: 1.05rem;">
                         <ul style="margin: 0; padding-left: 20px; color: #3c4043; line-height: 1.6;">
@@ -375,9 +398,12 @@
                     <div class="panel-header">Today</div>
                     <div style="padding: 15px; flex-grow: 1; overflow-y: auto;">
                         {% if events and events.today_display %}
-                            <div class="today-date-square">
-                                <div style="color: #1a73e8; font-size: 0.8rem; font-weight: 700; letter-spacing: 1px;">{{ events.today_display.month }}</div>
-                                <div style="color: #3c4043; font-size: 2.2rem; font-weight: 700; line-height: 1;">{{ events.today_display.day }}</div>
+                            <div style="display: inline-flex; flex-direction: column; align-items: center; margin-bottom: 15px;">
+                                <div class="today-date-square" style="margin-bottom: 5px;">
+                                    <div style="color: #1a73e8; font-size: 0.8rem; font-weight: 700; letter-spacing: 1px;">{{ events.today_display.month }}</div>
+                                    <div style="color: #3c4043; font-size: 2.2rem; font-weight: 700; line-height: 1;">{{ events.today_display.day }}</div>
+                                </div>
+                                <div style="font-size: 0.8rem; font-weight: 700; color: #70757a; text-transform: uppercase; letter-spacing: 1px;">{{ events.today_display.weekday }}</div>
                             </div>
                             
                             {% if events.today %}
@@ -411,8 +437,11 @@
                             <tr {% if event.time_str == 'All day' %}style="background-color: rgba(26, 115, 232, 0.08);"{% endif %}>
                                 <td class="date-col {% if event.is_today %}today{% endif %}">
                                     {% if show_date %}
-                                        <div class="day-str">{{ event.month_day_str }}</div>
-                                        <div class="day-num">{{ event.day_num }}</div>
+                                        <div class="schedule-date-square">
+                                            <div class="sched-month">{{ event.month_str }}</div>
+                                            <div class="sched-day">{{ event.day_num }}</div>
+                                        </div>
+                                        <div class="sched-weekday">{{ event.day_name_full }}</div>
                                     {% endif %}
                                 </td>
                                 <td class="time-col" style="width: 120px;">
@@ -602,6 +631,12 @@
                 isFireDrill = false;
                 clockEl.style.color = '';
                 toggleRadarView(backendShowRadar);
+                
+                // Hide controls and stop audio
+                document.getElementById('fire-drill-controls').style.display = 'none';
+                let siren = document.getElementById('weather-siren');
+                siren.pause();
+                siren.currentTime = 0;
                 return;
             }
 
@@ -615,6 +650,7 @@
                 isFireDrill = true;
                 clockEl.style.color = '#ff3333';
                 toggleRadarView(true);
+                document.getElementById('fire-drill-controls').style.display = 'block';
             }
         });
 
@@ -634,7 +670,12 @@
             const isLunchOpen = lunchModal && lunchModal.style.display === 'flex';
             const isEventOpen = eventModal && eventModal.style.display === 'flex';
 
-            if (!isRadarFullscreen && !isHelpOpen && !isLunchOpen && !isEventOpen) {
+            // Block the page reload if the user has scrolled down in the schedule.
+            // The 15-second inactivity timer will reset the scroll to 0, allowing the next reload.
+            const schedContent = document.querySelector('.schedule-content');
+            const isScrollingSchedule = schedContent && schedContent.scrollTop > 0;
+
+            if (!isRadarFullscreen && !isHelpOpen && !isLunchOpen && !isEventOpen && !isScrollingSchedule) {
                 window.location.reload();
             }
         }, {{ ui_refresh | default(300000) }}); 
@@ -820,6 +861,15 @@
         // Initialize state on page load based on backend Jinja variables
         if (backendShowRadar) {
             toggleRadarView(true);
+        }
+
+        const playSiren = {{ 'true' if weather and weather.play_siren else 'false' }};
+        if (playSiren) {
+            const sirenAudio = document.getElementById('weather-siren');
+            if (sirenAudio) {
+                // .catch() prevents console errors if Chrome blocks autoplay
+                sirenAudio.play().catch(e => console.warn("Autoplay blocked by browser.", e));
+            }
         }
     </script>
 </body>
