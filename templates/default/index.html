@@ -69,10 +69,10 @@
 
         h3 { margin-top: 0; margin-bottom: 15px; color: #4a4a4a; }
 
-        /* --- TOP SECTION (3 Columns) --- */
+        /* --- TOP SECTION (4 Columns) --- */
         .top-section {
             display: grid;
-            grid-template-columns: 0.85fr 1.65fr 1.5fr; /* Shrunk first column, widened middle */
+            grid-template-columns: 0.85fr 0.825fr 0.825fr 1.5fr;
             gap: 20px;
             flex: 2.8; /* Increased to give the extra boxes more vertical room */
             min-height: 0; /* Forces internal scrolling instead of pushing layout down */
@@ -84,7 +84,14 @@
             display: flex; 
             flex-direction: column; 
             gap: 15px; 
-            margin-right: 20px; /* Stacks with the 20px grid gap to create a 40px visual break */
+            min-height: 0;
+        }
+        
+        .col-temp {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-right: 20px; /* Creates the visual break between Temp and Today */
             min-height: 0;
         }
         
@@ -146,14 +153,7 @@
             flex: 0.8; /* Shrunk down to just fit the bullet points */
         }
 
-        /* Middle Column: Transparent Placeholder & Today View */
-        .middle-split {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            min-height: 0;
-        }
-        
+        /* Today View */
         .today-date-square {
             background-color: rgba(0, 0, 0, 0.05);
             border-radius: 12px;
@@ -185,15 +185,22 @@
 
         /* Right Column: Schedule */
         .schedule-box { display: flex; flex-direction: column; min-height: 0; }
-        .schedule-content { flex-grow: 1; overflow-y: auto; min-height: 0; }
+        .schedule-content { flex-grow: 1; overflow-y: auto; min-height: 0; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
         
-        .calendar-table { width: 100%; border-collapse: collapse; }
-        .calendar-table td { padding: 12px 8px; vertical-align: top; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .day-card {
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 12px;
+            padding: 12px 15px;
+            display: flex;
+            gap: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
         
         /* Date formatting */
-        .date-col { width: 70px; text-align: center; padding-right: 15px; }
+        .date-col { width: 60px; flex-shrink: 0; text-align: center; }
         .schedule-date-square {
-            background-color: rgba(0, 0, 0, 0.05);
+            background-color: rgba(244, 241, 234, 0.7); /* Pulling from base cream theme */
             border-radius: 10px;
             padding: 6px;
             text-align: center;
@@ -215,12 +222,18 @@
         .today .sched-day { color: #ffffff; }
         .today .sched-weekday { color: #1a73e8; }
         
+        /* Events Stack */
+        .events-stack { flex-grow: 1; display: flex; flex-direction: column; gap: 6px; justify-content: flex-start; }
+        .event-row { display: flex; align-items: flex-start; padding: 8px; border-radius: 8px; transition: background 0.2s; cursor: pointer; }
+        .event-row-all-day { background-color: rgba(26, 115, 232, 0.08); }
+        .event-row:active { background-color: rgba(0, 0, 0, 0.05); }
+        
         /* Time & Dot */
-        .time-col { width: 100px; font-size: 0.85rem; color: #70757a; font-weight: 400; }
-        .dot { display: inline-block; width: 10px; height: 10px; background-color: #7986cb; border-radius: 50%; margin-right: 8px; }
+        .time-col { width: 100px; flex-shrink: 0; font-size: 0.85rem; color: #70757a; font-weight: 400; padding-top: 1px; }
+        .dot { display: inline-block; width: 8px; height: 8px; background-color: #7986cb; border-radius: 50%; margin-right: 6px; }
         
         /* Event Title */
-        .event-col { font-size: 0.9rem; color: #3c4043; font-weight: 500; }
+        .event-col { font-size: 0.95rem; color: #3c4043; font-weight: 500; line-height: 1.3; }
 
         /* --- BOTTOM SECTION (Dynamic Grid) --- */
         .bottom-section {
@@ -391,11 +404,21 @@
                 </div>
             </div>
 
-            <div class="middle-split">
-                <div></div>
-                
-                <div class="panel" style="padding: 0; display: flex; flex-direction: column; min-height: 0;">
-                    <div class="panel-header">Today</div>
+            <div class="col-temp">
+                <div class="panel" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;">
+                    <div style="font-size: 0.85rem; font-weight: 700; color: #70757a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Right Now</div>
+                    <div style="font-size: 4rem; font-weight: 700; color: #3c4043; line-height: 1;">
+                        {% if weather and weather.current_temp is not none %}
+                            {{ weather.current_temp }}&deg;
+                        {% else %}
+                            --&deg;
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel" style="padding: 0; display: flex; flex-direction: column; min-height: 0;">
+                <div class="panel-header">Today</div>
                     <div style="padding: 15px; flex-grow: 1; overflow-y: auto;">
                         {% if events and events.today_display %}
                             <div style="display: inline-flex; flex-direction: column; align-items: center; margin-bottom: 15px;">
@@ -407,16 +430,16 @@
                             </div>
                             
                             {% if events.today %}
-                                <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.95rem;">
+                                <div style="display: flex; flex-direction: column; gap: 12px;">
                                 {% for e in events.today %}
-                                    <li style="margin-bottom: 12px; line-height: 1.3; cursor: pointer; padding: 6px; border-radius: 6px; transition: background 0.2s; {% if e.time_str == 'All day' %}background-color: rgba(26, 115, 232, 0.12);{% endif %}" onmousedown="this.style.background='rgba(0,0,0,0.05)'" onmouseup="this.style.background='{% if e.time_str == 'All day' %}rgba(26, 115, 232, 0.12){% else %}transparent{% endif %}'" onclick="openEventModal(this)" data-summary="{{ e.summary | e }}" data-start="{{ e.time_str }}" data-end="{{ e.end_time_str }}" data-loc="{{ e.location | e }}" data-desc="{{ e.description | e }}">
+                                    <div style="background: rgba(255, 255, 255, 0.4); border-radius: 12px; padding: 12px 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); border: 1px solid rgba(255, 255, 255, 0.5); cursor: pointer; transition: transform 0.1s ease; {% if e.time_str == 'All day' %}background-color: rgba(232, 240, 254, 0.6);{% endif %}" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'" onclick="openEventModal(this)" data-summary="{{ e.summary | e }}" data-start="{{ e.time_str }}" data-end="{{ e.end_time_str }}" data-loc="{{ e.location | e }}" data-desc="{{ e.description | e }}">
                                         <div style="color: #1a73e8; font-weight: 600; font-size: 0.8rem; margin-bottom: 3px;">
                                             {{ e.time_str }}{% if e.end_time_str %} - {{ e.end_time_str }}{% endif %}
                                         </div>
                                         <div style="color: #3c4043; font-weight: 500;">{{ e.summary }}</div>
-                                    </li>
+                                    </div>
                                 {% endfor %}
-                                </ul>
+                                </div>
                             {% else %}
                                 <div style="color: #9aa0a6; font-size: 0.95rem; font-style: italic;">No events scheduled today</div>
                             {% endif %}
@@ -425,38 +448,37 @@
                         {% endif %}
                     </div>
                 </div>
-            </div>
 
             <div class="panel schedule-box" style="padding: 0;">
                 <div class="panel-header">Schedule</div>
                 <div class="schedule-content">
-                    <table class="calendar-table">
-                        {% if events and events.future %}
-                        {% for event in events.future %}
-                            {% set show_date = loop.index0 == 0 or event.full_date != events.future[loop.index0 - 1].full_date %}
-                            <tr {% if event.time_str == 'All day' %}style="background-color: rgba(26, 115, 232, 0.08);"{% endif %}>
-                                <td class="date-col {% if event.is_today %}today{% endif %}">
-                                    {% if show_date %}
-                                        <div class="schedule-date-square">
-                                            <div class="sched-month">{{ event.month_str }}</div>
-                                            <div class="sched-day">{{ event.day_num }}</div>
+                    {% if events and events.future %}
+                        {% for date_str, day_events in events.future | groupby('full_date') %}
+                            {% set first = day_events[0] %}
+                            <div class="day-card">
+                                <div class="date-col {% if first.is_today %}today{% endif %}">
+                                    <div class="schedule-date-square">
+                                        <div class="sched-month">{{ first.month_str }}</div>
+                                        <div class="sched-day">{{ first.day_num }}</div>
+                                    </div>
+                                    <div class="sched-weekday">{{ first.day_name_full }}</div>
+                                </div>
+                                <div class="events-stack">
+                                    {% for event in day_events %}
+                                        <div class="event-row {% if event.time_str == 'All day' %}event-row-all-day{% endif %}" onclick="openEventModal(this)" data-summary="{{ event.summary | e }}" data-start="{{ event.time_str }}" data-end="{{ event.end_time_str }}" data-loc="{{ event.location | e }}" data-desc="{{ event.description | e }}">
+                                            <div class="time-col">
+                                                <div><span class="dot"></span>{{ event.time_str }}</div>
+                                                {% if event.end_time_str %}<div style="margin-left: 14px; font-size: 0.75rem; color: #9aa0a6;">to {{ event.end_time_str }}</div>{% endif %}
+                                            </div>
+                                            <div class="event-col">{{ event.summary }}</div>
                                         </div>
-                                        <div class="sched-weekday">{{ event.day_name_full }}</div>
-                                    {% endif %}
-                                </td>
-                                <td class="time-col" style="width: 120px;">
-                                    <div><span class="dot"></span>{{ event.time_str }}</div>
-                                    {% if event.end_time_str %}<div style="margin-left: 18px; font-size: 0.75rem; color: #9aa0a6;">to {{ event.end_time_str }}</div>{% endif %}
-                                </td>
-                                <td class="event-col" style="cursor: pointer; padding-left: 10px;" onmousedown="this.style.opacity='0.6'" onmouseup="this.style.opacity='1'" onclick="openEventModal(this)" data-summary="{{ event.summary | e }}" data-start="{{ event.time_str }}" data-end="{{ event.end_time_str }}" data-loc="{{ event.location | e }}" data-desc="{{ event.description | e }}">
-                                    {{ event.summary }}
-                                </td>
-                            </tr>
+                                    {% endfor %}
+                                </div>
+                            </div>
                         {% endfor %}
                     {% else %}
-                        <tr><td colspan="3" style="text-align:center; padding: 20px;">No upcoming events found.</td></tr>
+                        <div style="text-align:center; padding: 20px; color: #70757a;">No upcoming events found.</div>
                     {% endif %}
-                </table>
                 </div>
             </div>
         </div>
@@ -577,6 +599,8 @@
         </div>
     </div>
 
+    <div id="blackout-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; z-index: 20000; cursor: pointer;" onclick="snoozeBlackout()"></div>
+
     <script>
         function openEventModal(element) {
             const ds = element.dataset;
@@ -609,15 +633,37 @@
 
     <script>
         const clockEl = document.getElementById('live-clock');
+
+        function snoozeBlackout() {
+            // Snooze the blackout for 5 minutes (300,000 ms) and persist across page reloads
+            sessionStorage.setItem('blackoutSnoozeUntil', Date.now() + 300000);
+            document.getElementById('blackout-overlay').style.display = 'none';
+        }
+
         function updateClock() {
             const now = new Date();
             let hours = now.getHours();
             let minutes = now.getMinutes();
             const ampm = hours >= 12 ? 'PM' : 'AM';
-            hours = hours % 12;
-            hours = hours ? hours : 12; 
-            minutes = minutes < 10 ? '0' + minutes : minutes;
-            clockEl.innerHTML = hours + ':' + minutes + '<span>' + ampm + '</span>';
+            const displayHours = hours % 12 ? hours % 12 : 12; 
+            const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
+            clockEl.innerHTML = displayHours + ':' + displayMinutes + '<span>' + ampm + '</span>';
+
+            // Nighttime Blackout Logic (10:00 PM to 6:00 AM)
+            const blackoutOverlay = document.getElementById('blackout-overlay');
+            const snoozeUntil = parseInt(sessionStorage.getItem('blackoutSnoozeUntil') || '0', 10);
+            const isSirenActive = {{ 'true' if weather and weather.play_siren else 'false' }};
+            
+            // Wake the screen if snoozed OR if a Tornado Warning siren is firing
+            if ((hours >= 22 || hours < 6) && Date.now() > snoozeUntil && !isSirenActive) {
+                if (blackoutOverlay.style.display !== 'block') {
+                    blackoutOverlay.style.display = 'block';
+                }
+            } else {
+                if (blackoutOverlay.style.display !== 'none') {
+                    blackoutOverlay.style.display = 'none';
+                }
+            }
         }
         
         let clicks = [];
