@@ -86,10 +86,10 @@ def get_events():
                         e_dt = datetime.datetime.fromisoformat(end_raw)
                         span_days = (e_dt - s_dt).days
                     else:
-                        # Timed event: inclusive end date
-                        s_date = datetime.datetime.fromisoformat(start.split('T')[0])
-                        e_date = datetime.datetime.fromisoformat(end_raw.split('T')[0])
-                        span_days = (e_date - s_date).days + 1
+                        # Timed event: evaluate using local timezone to avoid UTC day-rollover
+                        s_dt = datetime.datetime.fromisoformat(start.replace('Z', '+00:00')).astimezone(ZoneInfo(TIMEZONE))
+                        e_dt = datetime.datetime.fromisoformat(end_raw.replace('Z', '+00:00')).astimezone(ZoneInfo(TIMEZONE))
+                        span_days = (e_dt.date() - s_dt.date()).days + 1
                         
                     if span_days < 1:
                         span_days = 1
@@ -175,9 +175,13 @@ def get_events():
 # ==========================================
 # WEATHER & CLOTHING LOGIC
 # ==========================================
-def get_clothing_recommendation(morning_temp, afternoon_temp, will_rain):
+def get_clothing_recommendation(morning_temp, afternoon_temp, will_rain, max_uv=0):
     outfit = []
     
+    # The EPA/WHO recommends sun protection at UV Index 3+, but 5+ is a more practical "Moderate/High" trigger
+    if max_uv >= 5.0:
+        outfit.append("Wear Sunscreen! ☀️")
+
     if afternoon_temp >= 80:
         outfit.append("Shorts & T-Shirt")
     elif 70 <= afternoon_temp < 80:
@@ -327,7 +331,26 @@ def get_weather():
         hourly_periods = hourly_resp.json()['properties']['periods']
         
         morning_temp, afternoon_temp, will_rain, hourly_display = parse_nws_forecast(hourly_periods)
-        clothing = get_clothing_recommendation(morning_temp, afternoon_temp, will_rain)
+        
+        # Grab current temp and max UV index from Open-Meteo for exact coordinates
+        max_uv = 0
+        current_temp = None
+        if HOME_LAT != '0.0' and HOME_LON != '0.0':
+            try:
+                om_url = f"https://api.open-meteo.com/v1/forecast?latitude={HOME_LAT}&longitude={HOME_LON}&current=temperature_2m&daily=uv_index_max&timezone=auto&forecast_days=1&temperature_unit=fahrenheit"
+                om_resp = requests.get(om_url, timeout=3)
+                if om_resp.status_code == 200:
+                    om_data = om_resp.json()
+                    max_uv = om_data.get('daily', {}).get('uv_index_max', [0])[0] or 0
+                    
+                    # Grab the current temp and round it to a clean integer
+                    raw_temp = om_data.get('current', {}).get('temperature_2m')
+                    if raw_temp is not None:
+                        current_temp = round(raw_temp)
+            except Exception as e:
+                print(f"Open-Meteo API Error: {e}")
+
+        clothing = get_clothing_recommendation(morning_temp, afternoon_temp, will_rain, max_uv)
         
         # 2. Process Daily for the 5-Day UI
         daily_resp = requests.get(daily_url, headers=headers, timeout=5)
@@ -418,6 +441,7 @@ def get_weather():
         return {
             "morning_temp": morning_temp,
             "afternoon_temp": afternoon_temp,
+            "current_temp": current_temp,
             "will_rain": will_rain,
             "clothing": clothing,
             "hourly": hourly_display,
