@@ -41,14 +41,18 @@ def get_events():
 
     # Auto-refresh the token if it expires
     if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            return [{"summary": "Auth Error: Token missing or invalid", "start": {}}]
+        try:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                return [{"summary": "Auth Error: Token missing or invalid", "start": {}}]
+        except Exception as e:
+            print(f"Token Refresh Error: {e}")
+            return [{"summary": "Auth Error: Token expired. Please re-authenticate.", "start": {}}]
  
     try:
         service = build('calendar', 'v3', credentials=creds)
-        now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
         
         # Pull the next 30 events to ensure we have enough for both views
         events_result = service.events().list(calendarId=CALENDAR_ID, timeMin=now,
@@ -275,7 +279,7 @@ def get_active_alerts(headers):
 def get_radar_sweep_status():
     # Uses IEM Mesonet API to check sweep gaps for the local NWS radar
     radar_id = os.getenv('RADAR_ID', 'SRX') # Default to KSRX (Fort Smith/Alma)
-    end_dt = datetime.datetime.utcnow()
+    end_dt = datetime.datetime.now(datetime.timezone.utc)
     start_dt = end_dt - datetime.timedelta(hours=2)
     
     url = f"https://mesonet.agron.iastate.edu/json/radar?operation=list&product=N0Q&radar={radar_id}&start={start_dt.strftime('%Y-%m-%dT%H:%M:%SZ')}&end={end_dt.strftime('%Y-%m-%dT%H:%M:%SZ')}"
@@ -338,7 +342,7 @@ def get_weather():
         if HOME_LAT != '0.0' and HOME_LON != '0.0':
             try:
                 om_url = f"https://api.open-meteo.com/v1/forecast?latitude={HOME_LAT}&longitude={HOME_LON}&current=temperature_2m&daily=uv_index_max&timezone=auto&forecast_days=1&temperature_unit=fahrenheit"
-                om_resp = requests.get(om_url, timeout=3)
+                om_resp = requests.get(om_url, timeout=10)
                 if om_resp.status_code == 200:
                     om_data = om_resp.json()
                     max_uv = om_data.get('daily', {}).get('uv_index_max', [0])[0] or 0
@@ -368,6 +372,10 @@ def get_weather():
             if len(daily_forecast) >= 5:
                 break
                 
+            # Skip the leading overnight period if updating early in the morning
+            if i == 0 and not period['isDaytime']:
+                continue
+                
             dt = datetime.datetime.fromisoformat(period['startTime'])
             day_name = dt.strftime('%a')
 
@@ -381,11 +389,12 @@ def get_weather():
                 night_pop_raw = night_period.get('probabilityOfPrecipitation', {})
                 night_pop = int(night_pop_raw.get('value') or 0) if night_pop_raw else 0
                 
+                raw_chance = max(day_pop, night_pop)
                 daily_forecast.append({
                     'name': day_name,
                     'high': period['temperature'],
                     'low': night_period['temperature'],
-                    'rain_chance': max(day_pop, night_pop),
+                    'rain_chance': round(raw_chance / 5) * 5,
                     'short_forecast': period['shortForecast']
                 })
                 skip_next = True
@@ -397,7 +406,7 @@ def get_weather():
                     'name': day_name,
                     'high': afternoon_temp,
                     'low': period['temperature'],
-                    'rain_chance': night_pop,
+                    'rain_chance': round(night_pop / 5) * 5,
                     'short_forecast': period['shortForecast']
                 })
 

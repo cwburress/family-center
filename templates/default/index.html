@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Family Center</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -500,7 +501,7 @@
                             </div>
                             
                             {% set forecast = day.short_forecast | lower %}
-                            <div style="position: absolute; top: 10px; right: 25px; font-size: clamp(2.25rem, 3.4vw, 4.1rem); line-height: 1;">
+                            <div style="position: absolute; top: 10px; right: 25px; font-size: clamp(2.25rem, 3.4vw, 4.1rem); line-height: 1; filter: drop-shadow(0px 0px 4px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,0.8));">
                                 {% if day.rain_chance|int >= 40 and ('storm' in forecast or 'thunder' in forecast) %}⛈️
                                 {% elif day.rain_chance|int >= 30 %}🌧️
                                 {% elif 'cloud' in forecast or 'overcast' in forecast %}☁️
@@ -520,7 +521,7 @@
                                 </div>
                             </div>
                             <div style="font-weight: bold; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                                <span style="font-size: 1.4rem;">🌧️</span>
+                                <span style="font-size: 1.4rem; filter: drop-shadow(0px 0px 4px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,0.8));">🌧️</span>
                                 <span style="color: #1a73e8;">{{ day.rain_chance }}%</span>
                             </div>
                         </div>
