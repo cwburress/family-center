@@ -657,6 +657,14 @@
                         <span class="slider"></span>
                     </label>
                 </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                    <span style="font-size: 0.9rem; color: #3c4043; font-weight: 500;">Radar Reset Idle Time (Sec):</span>
+                    <input type="number" id="radar-reset" value="10" min="5" onchange="saveConfig()" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; text-align: center;">
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                    <span style="font-size: 0.9rem; color: #3c4043; font-weight: 500;">Schedule Reset Idle Time (Sec):</span>
+                    <input type="number" id="schedule-reset" value="15" min="5" onchange="saveConfig()" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; text-align: center;">
+                </div>
                 <div style="padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05); text-align: center;">
                     <button onclick="window.location.reload()" style="background: #ea4335; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.85rem; letter-spacing: 0.5px; width: 100%;">↻ Reload Dashboard (Clear Memory)</button>
                 </div>
@@ -679,7 +687,7 @@
     <div id="blackout-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; z-index: 20000; cursor: pointer;" onclick="snoozeBlackout()"></div>
 
     <script>
-        let bgConfig = { rotate: false, interval: 300, selected: [], available: [], radar_loop: true };
+        let bgConfig = { rotate: false, interval: 300, selected: [], available: [], radar_loop: true, radar_reset_interval: 10, schedule_reset_interval: 15 };
         let currentBgIndex = 0;
         let bgRotationInterval = null;
 
@@ -689,9 +697,13 @@
                 const res = await fetch('/api/bg-settings?t=' + Date.now(), { cache: 'no-store' });
                 bgConfig = await res.json();
                 if (bgConfig.radar_loop === undefined) bgConfig.radar_loop = true; 
+                if (bgConfig.radar_reset_interval === undefined) bgConfig.radar_reset_interval = 10;
+                if (bgConfig.schedule_reset_interval === undefined) bgConfig.schedule_reset_interval = 15;
                 document.getElementById('rotate-toggle').checked = bgConfig.rotate;
                 document.getElementById('rotate-interval').value = bgConfig.interval || 300;
                 document.getElementById('radar-toggle').checked = bgConfig.radar_loop;
+                document.getElementById('radar-reset').value = bgConfig.radar_reset_interval;
+                document.getElementById('schedule-reset').value = bgConfig.schedule_reset_interval;
                 renderThumbnails();
                 applyBackground();
             } catch (e) { console.error("Failed to load config", e); }
@@ -701,11 +713,20 @@
             bgConfig.rotate = document.getElementById('rotate-toggle').checked;
             bgConfig.interval = parseInt(document.getElementById('rotate-interval').value, 10) || 300;
             bgConfig.radar_loop = document.getElementById('radar-toggle').checked;
+            bgConfig.radar_reset_interval = parseInt(document.getElementById('radar-reset').value, 10) || 10;
+            bgConfig.schedule_reset_interval = parseInt(document.getElementById('schedule-reset').value, 10) || 15;
             try {
                 await fetch('/api/bg-settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rotate: bgConfig.rotate, interval: bgConfig.interval, selected: bgConfig.selected, radar_loop: bgConfig.radar_loop })
+                    body: JSON.stringify({ 
+                        rotate: bgConfig.rotate, 
+                        interval: bgConfig.interval, 
+                        selected: bgConfig.selected, 
+                        radar_loop: bgConfig.radar_loop,
+                        radar_reset_interval: bgConfig.radar_reset_interval,
+                        schedule_reset_interval: bgConfig.schedule_reset_interval
+                    })
                 });
                 applyBackground();
             } catch (e) { console.error("Failed to save config", e); }
@@ -961,9 +982,10 @@
 
         function resetScheduleScrollTimer() {
             clearTimeout(scheduleScrollTimer);
+            const delayMs = (bgConfig.schedule_reset_interval || 15) * 1000;
             scheduleScrollTimer = setTimeout(() => {
                 scheduleContent.scrollTo({ top: 0, behavior: 'smooth' });
-            }, 15000);
+            }, delayMs);
         }
 
         if (scheduleContent) {
@@ -1038,10 +1060,11 @@
 
             function startResetTimer() {
                 clearTimeout(resetTimer);
+                const delayMs = (bgConfig.radar_reset_interval || 10) * 1000;
                 resetTimer = setTimeout(() => {
                     // setView smoothly returns to both the original coordinates and zoom level
                     map.setView([homeLat, homeLon], defaultZoom, { animate: true });
-                }, 10000);
+                }, delayMs);
             }
 
             // Pause the timer if you are actively dragging or zooming

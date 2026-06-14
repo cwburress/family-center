@@ -1,1 +1,1 @@
-{"rotate": false, "interval": 120, "selected": ["PXL_20251121_183448976.jpg"], "radar_loop": false}
+{"rotate": false, "interval": 120, "selected": ["PXL_20251121_183448976.jpg"], "radar_loop": false, "radar_reset_interval": 20, "schedule_reset_interval": 15}
