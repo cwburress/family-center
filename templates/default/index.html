@@ -10,9 +10,12 @@
     <style>
         /* Pastel & Cream Base Theme with Background Image */
         body { 
-            background: url('/static/background.jpg') no-repeat center center fixed;
+            background-color: #000000; /* Start black to prevent flashing */
+            background-image: none;
             background-size: cover;
-            background-color: #f4f1ea; /* Fallback */
+            background-position: center center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
             color: #5c5c5c; /* Soft charcoal for readability */
             font-family: 'Google Sans', sans-serif; 
             margin: 0; 
@@ -20,6 +23,7 @@
             height: 100vh; 
             box-sizing: border-box;
             overflow: hidden; /* Hard stop on main window scrolling */
+            transition: background-image 1.5s ease-in-out, background-color 1.5s ease-in-out;
         }
 
         /* Hidden scrollbars for touch interface */
@@ -56,6 +60,33 @@
         .help-link:hover {
             opacity: 1;
         }
+
+        .config-link {
+            position: absolute;
+            top: -18px;
+            right: 60px;
+            color: #ffffff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            z-index: 100;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        .config-link:hover { opacity: 1; }
+        
+        .thumb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 15px; max-height: 250px; overflow-y: auto; padding-right: 5px; }
+        .thumb-item { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 8px; cursor: pointer; border: 5px solid transparent; transition: border-color 0.2s, transform 0.2s; }
+        .thumb-item.selected { border-color: #1a73e8; transform: scale(0.95); box-shadow: 0 0 12px rgba(26, 115, 232, 0.8); }
+        
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: #1a73e8; }
+        input:checked + .slider:before { transform: translateX(20px); }
 
         /* Translucent rounded panels */
         .panel {
@@ -344,6 +375,7 @@
 </head>
 <body>
     <div class="dashboard-container">
+        <div class="config-link" onclick="openConfig()">CONFIG</div>
         <div class="help-link" onclick="document.getElementById('help-modal-overlay').style.display='flex'">HELP</div>
         
         <audio id="weather-siren" src="/static/weather_siren.mp3" preload="auto"></audio>
@@ -600,9 +632,207 @@
         </div>
     </div>
 
+    <div id="config-modal-overlay" class="modal-overlay" onclick="closeConfig()">
+        <div class="lunch-modal" onclick="event.stopPropagation()" style="max-width: 600px; max-height: 85vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 12px; margin-bottom: 15px;">
+                <h2 style="margin: 0; color: #3c4043; font-size: 1.4rem;">Dashboard Settings</h2>
+                <button onclick="closeConfig()" style="background: none; border: none; font-size: 2rem; line-height: 1; color: #9aa0a6; cursor: pointer; padding: 0; margin-left: 15px;">&times;</button>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; background: rgba(0,0,0,0.03); padding: 12px; border-radius: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="color: #3c4043; font-size: 1.05rem;">Rotate Backgrounds</strong>
+                        <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Automatically cycle through selected images</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="rotate-toggle" onchange="saveConfig()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                    <span style="font-size: 0.9rem; color: #3c4043; font-weight: 500;">Rotation Interval (Seconds):</span>
+                    <input type="number" id="rotate-interval" value="300" min="10" onchange="saveConfig()" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; text-align: center;">
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                    <div>
+                        <strong style="color: #3c4043; font-size: 1.05rem;">Enable Radar Loop</strong>
+                        <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Animate NEXRAD frames (high memory usage)</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="radar-toggle" onchange="saveConfig()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div style="padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05); text-align: center;">
+                    <button onclick="window.location.reload()" style="background: #ea4335; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.85rem; letter-spacing: 0.5px; width: 100%;">↻ Reload Dashboard (Clear Memory)</button>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 15px;">
+                <label style="background: #1a73e8; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; cursor: pointer; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Upload Photo
+                    <input type="file" id="bg-upload" accept="image/*" style="display: none;" onchange="uploadBackground(this)">
+                </label>
+                <span id="upload-status" style="font-size: 0.9rem; font-weight: bold; color: #34a853;"></span>
+            </div>
+
+            <strong style="color: #1a73e8; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 10px; display: block;">Available Backgrounds</strong>
+            <div id="thumb-container" class="thumb-grid">
+                </div>
+        </div>
+    </div>
+
     <div id="blackout-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; z-index: 20000; cursor: pointer;" onclick="snoozeBlackout()"></div>
 
     <script>
+        let bgConfig = { rotate: false, interval: 300, selected: [], available: [], radar_loop: true };
+        let currentBgIndex = 0;
+        let bgRotationInterval = null;
+
+        async function loadConfig() {
+            try {
+                // Force the browser to skip the cache so it sees newly uploaded files
+                const res = await fetch('/api/bg-settings?t=' + Date.now(), { cache: 'no-store' });
+                bgConfig = await res.json();
+                if (bgConfig.radar_loop === undefined) bgConfig.radar_loop = true; 
+                document.getElementById('rotate-toggle').checked = bgConfig.rotate;
+                document.getElementById('rotate-interval').value = bgConfig.interval || 300;
+                document.getElementById('radar-toggle').checked = bgConfig.radar_loop;
+                renderThumbnails();
+                applyBackground();
+            } catch (e) { console.error("Failed to load config", e); }
+        }
+
+        async function saveConfig() {
+            bgConfig.rotate = document.getElementById('rotate-toggle').checked;
+            bgConfig.interval = parseInt(document.getElementById('rotate-interval').value, 10) || 300;
+            bgConfig.radar_loop = document.getElementById('radar-toggle').checked;
+            try {
+                await fetch('/api/bg-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rotate: bgConfig.rotate, interval: bgConfig.interval, selected: bgConfig.selected, radar_loop: bgConfig.radar_loop })
+                });
+                applyBackground();
+            } catch (e) { console.error("Failed to save config", e); }
+        }
+
+        function openConfig() {
+            loadConfig(); 
+            document.getElementById('config-modal-overlay').style.display = 'flex';
+        }
+
+        function closeConfig() {
+            document.getElementById('config-modal-overlay').style.display = 'none';
+        }
+
+        function toggleSelection(filename) {
+            const idx = bgConfig.selected.indexOf(filename);
+            if (idx > -1) {
+                if (bgConfig.selected.length > 1) bgConfig.selected.splice(idx, 1);
+            } else {
+                if (!bgConfig.rotate) bgConfig.selected = [filename];
+                else bgConfig.selected.push(filename);
+            }
+            renderThumbnails();
+            saveConfig();
+        }
+
+        function renderThumbnails() {
+            const container = document.getElementById('thumb-container');
+            container.innerHTML = '';
+            
+            // Add Pure Black Option
+            const blackDiv = document.createElement('div');
+            blackDiv.className = 'thumb-item ' + (bgConfig.selected.includes('black') ? 'selected' : '');
+            blackDiv.style.backgroundColor = '#000000';
+            blackDiv.onclick = () => toggleSelection('black');
+            container.appendChild(blackDiv);
+            
+            const defImg = document.createElement('img');
+            defImg.src = '/static/background.jpg';
+            defImg.className = 'thumb-item ' + (bgConfig.selected.includes('background.jpg') ? 'selected' : '');
+            defImg.onclick = () => toggleSelection('background.jpg');
+            container.appendChild(defImg);
+
+            bgConfig.available.forEach(filename => {
+                if (filename === 'background.jpg') return;
+                const img = document.createElement('img');
+                // Append timestamp to prevent the browser from serving a stale thumbnail from memory
+                img.src = '/static/backgrounds/' + filename + '?t=' + Date.now();
+                img.className = 'thumb-item ' + (bgConfig.selected.includes(filename) ? 'selected' : '');
+                img.onclick = () => toggleSelection(filename);
+                container.appendChild(img);
+            });
+        }
+
+        async function uploadBackground(input) {
+            if (!input.files || input.files.length === 0) return;
+            const statusLabel = document.getElementById('upload-status');
+            statusLabel.style.color = '#1a73e8';
+            statusLabel.innerText = "Uploading...";
+            
+            const formData = new FormData();
+            formData.append('file', input.files[0]);
+
+            try {
+                const res = await fetch('/api/upload-bg', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    statusLabel.style.color = '#34a853';
+                    statusLabel.innerText = "Success!";
+                    loadConfig(); 
+                } else {
+                    statusLabel.style.color = '#ea4335';
+                    statusLabel.innerText = "Error uploading.";
+                }
+            } catch (e) {
+                statusLabel.style.color = '#ea4335';
+                statusLabel.innerText = "Upload failed.";
+            }
+            setTimeout(() => { statusLabel.innerText = ""; input.value = ""; }, 3000);
+        }
+
+        function applyBackground() {
+            clearInterval(bgRotationInterval);
+            if (bgConfig.selected.length === 0) {
+                document.body.style.backgroundImage = "url('/static/background.jpg')";
+                return;
+            }
+
+            const updateBg = () => {
+                currentBgIndex = (currentBgIndex + 1) % bgConfig.selected.length;
+                let bgName = bgConfig.selected[currentBgIndex];
+                
+                if (bgName === 'black') {
+                    document.body.style.backgroundImage = 'none';
+                    document.body.style.backgroundColor = '#000000';
+                    return;
+                }
+                
+                let path = bgName === 'background.jpg' ? '/static/background.jpg' : '/static/backgrounds/' + bgName;
+                
+                // Preload the image so it doesn't blink to a blank screen during the CSS crossfade
+                const img = new Image();
+                img.onload = () => {
+                    document.body.style.backgroundImage = `url('${path}')`;
+                    document.body.style.backgroundColor = '#000000';
+                };
+                img.src = path;
+            };
+
+            currentBgIndex = -1;
+            updateBg();
+
+            if (bgConfig.rotate && bgConfig.selected.length > 1) {
+                const intervalMs = (bgConfig.interval || 300) * 1000;
+                bgRotationInterval = setInterval(updateBg, intervalMs);
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', loadConfig);
+
         function openEventModal(element) {
             const ds = element.dataset;
             document.getElementById('em-title').innerText = ds.summary || 'Busy';
@@ -716,14 +946,61 @@
             const isHelpOpen = helpModal && helpModal.style.display === 'flex';
             const isLunchOpen = lunchModal && lunchModal.style.display === 'flex';
             const isEventOpen = eventModal && eventModal.style.display === 'flex';
+            const configModal = document.getElementById('config-modal-overlay');
+            const isConfigOpen = configModal && configModal.style.display === 'flex';
 
             // Block the page reload if the user has scrolled down in the schedule.
             // The 15-second inactivity timer will reset the scroll to 0, allowing the next reload.
             const schedContent = document.querySelector('.schedule-content');
             const isScrollingSchedule = schedContent && schedContent.scrollTop > 0;
 
-            if (!isRadarFullscreen && !isHelpOpen && !isLunchOpen && !isEventOpen && !isScrollingSchedule) {
-                window.location.reload();
+            if (!isRadarFullscreen && !isHelpOpen && !isLunchOpen && !isEventOpen && !isConfigOpen && !isScrollingSchedule) {
+                // Fetch new data silently without a hard browser reload to preserve background transitions
+                fetch(window.location.href)
+                    .then(res => res.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        
+                        // Targeted DOM swaps
+                        document.querySelector('.lunch-box').innerHTML = doc.querySelector('.lunch-box').innerHTML;
+                        document.querySelector('.activity-box').innerHTML = doc.querySelector('.activity-box').innerHTML;
+                        document.querySelector('.clothing-box').innerHTML = doc.querySelector('.clothing-box').innerHTML;
+                        document.querySelector('.col-temp .panel').innerHTML = doc.querySelector('.col-temp .panel').innerHTML;
+                        
+                        const todayPanel = document.querySelector('.top-section > .panel:not(.schedule-box)');
+                        const newTodayPanel = doc.querySelector('.top-section > .panel:not(.schedule-box)');
+                        if (todayPanel && newTodayPanel) todayPanel.innerHTML = newTodayPanel.innerHTML;
+                        
+                        document.querySelector('.schedule-box').innerHTML = doc.querySelector('.schedule-box').innerHTML;
+                        document.querySelector('.forecast-grid').innerHTML = doc.querySelector('.forecast-grid').innerHTML;
+                        document.querySelector('#lunch-modal-overlay .lunch-modal').innerHTML = doc.querySelector('#lunch-modal-overlay .lunch-modal').innerHTML;
+
+                        // Check if radar status needs to toggle
+                        const oldBottom = document.getElementById('bottom-section');
+                        const newBottom = doc.getElementById('bottom-section');
+                        const currentlyHasRadar = oldBottom.classList.contains('bottom-with-radar');
+                        const newHasRadar = newBottom.classList.contains('bottom-with-radar');
+                        
+                        if (currentlyHasRadar !== newHasRadar) {
+                            toggleRadarView(newHasRadar);
+                        } else if (currentlyHasRadar && mapInitialized) {
+                            // Silently force Leaflet to fetch the newest radar frames in the background
+                            radarLayers.forEach(layer => layer.setParams({ _t: Date.now() }));
+                        }
+
+                        // Fire siren only once per active warning period to prevent looping every minute
+                        if (html.includes('const playSiren = true;')) {
+                            if (!sirenPlayed) {
+                                const sirenAudio = document.getElementById('weather-siren');
+                                if (sirenAudio && sirenAudio.paused) sirenAudio.play().catch(e => console.warn(e));
+                                sirenPlayed = true;
+                            }
+                        } else {
+                            sirenPlayed = false;
+                        }
+                    })
+                    .catch(err => console.error("Silent UI refresh failed", err));
             }
         }, {{ ui_refresh | default(300000) }}); 
 
@@ -749,6 +1026,9 @@
     <script>
         let map;
         let mapInitialized = false;
+        let radarAnimTimer = null;
+        let sirenPlayed = false;
+        let radarLayers = [];
 
         function toggleRadarView(show) {
             const bottomSection = document.getElementById('bottom-section');
@@ -829,7 +1109,7 @@
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
             }).addTo(map);
 
-            const radarLayers = [];
+            radarLayers = []; // Reference the global array
             const numFrames = 10;
             const layerNames = [
                 'nexrad-n0q-900913-m45m', 'nexrad-n0q-900913-m40m', 'nexrad-n0q-900913-m35m',
@@ -851,15 +1131,29 @@
             // Animation loop
             let currentFrame = 0;
             function animateRadar() {
+                // Bail out gracefully if map is being rebuilt
+                if (!mapInitialized || radarLayers.length === 0) return;
+                
+                if (!bgConfig.radar_loop) {
+                    // If looping is disabled, show only the most recent live frame
+                    radarLayers.forEach((layer, idx) => {
+                        layer.setOpacity(idx === numFrames - 1 ? 0.6 : 0);
+                    });
+                    // Re-check periodically in case the config is toggled back on
+                    radarAnimTimer = setTimeout(animateRadar, 3000);
+                    return;
+                }
+
                 const prevFrame = currentFrame === 0 ? numFrames - 1 : currentFrame - 1;
                 radarLayers[prevFrame].setOpacity(0);
                 radarLayers[currentFrame].setOpacity(0.6);
 
                 const delay = (currentFrame === numFrames - 1) ? 3000 : 500;
                 currentFrame = (currentFrame + 1) % numFrames;
-                setTimeout(animateRadar, delay);
+                radarAnimTimer = setTimeout(animateRadar, delay);
             }
-            setTimeout(animateRadar, 2000);
+            clearTimeout(radarAnimTimer);
+            radarAnimTimer = setTimeout(animateRadar, 2000);
 
             L.circleMarker([homeLat, homeLon], {
                 radius: 4,
@@ -912,6 +1206,7 @@
 
         const playSiren = {{ 'true' if weather and weather.play_siren else 'false' }};
         if (playSiren) {
+            sirenPlayed = true;
             const sirenAudio = document.getElementById('weather-siren');
             if (sirenAudio) {
                 // .catch() prevents console errors if Chrome blocks autoplay

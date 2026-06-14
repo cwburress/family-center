@@ -6,7 +6,8 @@ import requests
 import threading
 import time
 from zoneinfo import ZoneInfo
-from flask import Flask, render_template
+from flask import Flask, render_template, request, jsonify
+from werkzeug.utils import secure_filename
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -16,6 +17,29 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
+
+# Force absolute paths based strictly on where app.py physically lives
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'backgrounds')
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+SETTINGS_FILE = os.path.join(BASE_DIR, 'bg_settings.json')
+
+def load_bg_settings():
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, 'r') as f:
+                settings = json.load(f)
+                # Ensure radar_loop exists for older configs
+                if "radar_loop" not in settings:
+                    settings["radar_loop"] = True
+                return settings
+        except Exception:
+            pass
+    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "radar_loop": True}
+
+def save_bg_settings(settings):
+    with open(SETTINGS_FILE, 'w') as f:
+        json.dump(settings, f)
 
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 THEME = os.getenv('THEME', 'default')
@@ -521,6 +545,66 @@ def index():
     activity = CACHE['activity'] or get_school_activity()
     
     return render_template(f'{THEME}/index.html', events=events, weather=weather, lunch=lunch, activity=activity, home_lat=HOME_LAT, home_lon=HOME_LON, ui_refresh=UI_REFRESH)
+
+@app.route('/api/bg-settings', methods=['GET', 'POST'])
+def bg_settings():
+    if request.method == 'POST':
+        save_bg_settings(request.json)
+        return jsonify({"status": "success"})
+    
+    settings = load_bg_settings()
+    available = []
+    
+    print(f"\n--- DEBUG: Checking for backgrounds ---")
+    print(f"Looking in directory: {app.config['UPLOAD_FOLDER']}")
+    
+    if os.path.exists(app.config['UPLOAD_FOLDER']):
+        all_files = os.listdir(app.config['UPLOAD_FOLDER'])
+        print(f"Total files found in directory: {len(all_files)}")
+        available = [f for f in all_files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.jfif'))]
+        print(f"Valid image files identified: {available}")
+    else:
+        print("WARNING: The upload directory does not exist!")
+        
+    settings['available'] = available
+    print(f"---------------------------------------\n")
+    return jsonify(settings)
+
+@app.route('/api/upload-bg', methods=['POST'])
+def upload_bg():
+    print(f"\n--- DEBUG: Starting File Upload ---")
+    if 'file' not in request.files:
+        print("Upload Error: No file part in request")
+        return jsonify({"error": "No file part"}), 400
+    file = request.files['file']
+    if file.filename == '':
+        print("Upload Error: No selected file")
+        return jsonify({"error": "No selected file"}), 400
+    if file:
+        print(f"Original filename received: {file.filename}")
+        filename = secure_filename(file.filename)
+        
+        # Prevent collision with the default UI background image
+        if filename.lower() == 'background.jpg':
+            filename = f"custom_bg_{int(time.time())}.jpg"
+            print(f"Filename collision detected, renamed to: {filename}")
+            
+        if not filename or filename.startswith('.'):
+            ext = file.filename.rsplit('.', 1)[1] if '.' in file.filename else 'jpg'
+            filename = f"bg_{int(time.time())}.{ext}"
+            print(f"Filename stripped, generated timestamp name: {filename}")
+            
+        save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        print(f"Attempting to save to physical path: {save_path}")
+        
+        try:
+            file.save(save_path)
+            print(f"SUCCESS: File successfully written to disk!")
+        except Exception as e:
+            print(f"CRITICAL ERROR writing file: {e}")
+            
+        print(f"-----------------------------------\n")
+        return jsonify({"status": "success", "filename": filename})
 
 
 if __name__ == '__main__':
