@@ -29,13 +29,17 @@ def load_bg_settings():
         try:
             with open(SETTINGS_FILE, 'r') as f:
                 settings = json.load(f)
-                # Ensure radar_loop exists for older configs
+                # Ensure new keys exist for older configs
                 if "radar_loop" not in settings:
                     settings["radar_loop"] = True
+                if "radar_reset_interval" not in settings:
+                    settings["radar_reset_interval"] = 10
+                if "schedule_reset_interval" not in settings:
+                    settings["schedule_reset_interval"] = 15
                 return settings
         except Exception:
             pass
-    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "radar_loop": True}
+    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "radar_loop": True, "radar_reset_interval": 10, "schedule_reset_interval": 15}
 
 def save_bg_settings(settings):
     with open(SETTINGS_FILE, 'w') as f:
