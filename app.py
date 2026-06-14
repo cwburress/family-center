@@ -437,20 +437,6 @@ def get_weather():
         # 3. Process Active NWS Alerts for Exact Location
         active_alerts = get_active_alerts(headers)
 
-        # Evaluate siren conditions based on local time
-        play_siren = False
-        current_hour = datetime.datetime.now(ZoneInfo(TIMEZONE)).hour
-        is_quiet_hours = current_hour >= 20 or current_hour < 6
-
-        for alert in active_alerts:
-            event = alert.get('event', '')
-            if event == "Tornado Warning":
-                play_siren = True
-                break
-            elif not is_quiet_hours and event in ["Severe Thunderstorm Warning", "Flash Flood Warning", "Flood Warning"]:
-                play_siren = True
-                break
-
         # 4. Determine if Radar should be displayed
         show_radar = False
         
@@ -480,8 +466,7 @@ def get_weather():
             "hourly": hourly_display,
             "daily": daily_forecast,
             "alerts": active_alerts,
-            "show_radar": show_radar,
-            "play_siren": play_siren
+            "show_radar": show_radar
         }
     except Exception as e:
         print(f"Weather API Error: {e}")
