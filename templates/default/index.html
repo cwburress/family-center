@@ -659,7 +659,7 @@
                 </div>
                 <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
                     <span style="font-size: 0.9rem; color: #3c4043; font-weight: 500;">Radar Reset Idle Time (Sec):</span>
-                    <input type="number" id="radar-reset" value="10" min="5" onchange="saveConfig()" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; text-align: center;">
+                    <input type="number" id="radar-reset" value="10" min="0" onchange="saveConfig()" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; text-align: center;">
                 </div>
                 <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
                     <span style="font-size: 0.9rem; color: #3c4043; font-weight: 500;">Schedule Reset Idle Time (Sec):</span>
@@ -713,7 +713,8 @@
             bgConfig.rotate = document.getElementById('rotate-toggle').checked;
             bgConfig.interval = parseInt(document.getElementById('rotate-interval').value, 10) || 300;
             bgConfig.radar_loop = document.getElementById('radar-toggle').checked;
-            bgConfig.radar_reset_interval = parseInt(document.getElementById('radar-reset').value, 10) || 10;
+            const radarResetVal = parseInt(document.getElementById('radar-reset').value, 10);
+            bgConfig.radar_reset_interval = isNaN(radarResetVal) ? 10 : radarResetVal;
             bgConfig.schedule_reset_interval = parseInt(document.getElementById('schedule-reset').value, 10) || 15;
             try {
                 await fetch('/api/bg-settings', {
@@ -1055,12 +1056,16 @@
                 setTimeout(() => { map.invalidateSize(); }, 350);
             });
 
-            // Auto-reset center and zoom after 5 seconds of inactivity
+            // Auto-reset center and zoom after idle time (disabled if set to 0)
             let resetTimer;
 
             function startResetTimer() {
                 clearTimeout(resetTimer);
-                const delayMs = (bgConfig.radar_reset_interval || 10) * 1000;
+                const delaySec = parseInt(bgConfig.radar_reset_interval, 10);
+                if (isNaN(delaySec) || delaySec <= 0) {
+                    return; // Disable reset when set to 0 or negative
+                }
+                const delayMs = delaySec * 1000;
                 resetTimer = setTimeout(() => {
                     // setView smoothly returns to both the original coordinates and zoom level
                     map.setView([homeLat, homeLon], defaultZoom, { animate: true });

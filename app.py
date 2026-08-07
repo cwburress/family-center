@@ -485,7 +485,7 @@ def get_lunch_menu():
         with open('menu.json', 'r') as f:
             menu_data = json.load(f)
         
-        today_str = datetime.datetime.now().strftime('%Y-%m-%d')
+        today_str = datetime.datetime.now(ZoneInfo(TIMEZONE)).strftime('%Y-%m-%d')
         return menu_data.get(today_str, None)
     except (FileNotFoundError, json.JSONDecodeError) as e:
         print(f"Menu Error: {e}")
