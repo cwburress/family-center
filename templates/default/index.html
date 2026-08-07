@@ -448,14 +448,21 @@
                 <div style="padding: 20px; flex-grow: 1; overflow-y: auto;">
                     {% if events and events.today_display %}
                         <div style="display: flex; justify-content: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(0,0,0,0.06);">
-                            <div style="background-color: #1a73e8; border-radius: 16px; width: 100%; max-width: 260px; box-shadow: 0 4px 15px rgba(26,115,232,0.3); overflow: hidden; display: flex; flex-direction: column; text-align: center;">
-                                <div style="background-color: rgba(255, 255, 255, 0.18); padding: 7px 12px; font-size: 1rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #ffffff;">
-                                    {{ events.today_display.month }}
+                            <div style="display: flex; align-items: stretch; border-radius: 16px; box-shadow: 0 4px 14px rgba(0,0,0,0.08); overflow: hidden; width: 100%; max-width: 320px; border: 1px solid rgba(0,0,0,0.08);">
+                                <!-- Left side: Calendar Square (Month top + Day bottom) -->
+                                <div style="display: flex; flex-direction: column; width: 85px; flex-shrink: 0;">
+                                    <!-- Month Header (Light/Medium Blue) -->
+                                    <div style="background-color: #3b82f6; color: #ffffff; padding: 6px 0; text-align: center; font-size: 1.05rem; font-weight: 800; letter-spacing: 1.5px;">
+                                        {{ events.today_display.month }}
+                                    </div>
+                                    <!-- Day Number (White Box with Blue Text) -->
+                                    <div style="background-color: #ffffff; color: #3b82f6; padding: 6px 0; text-align: center; font-size: 2.8rem; font-weight: 800; line-height: 1; flex-grow: 1; display: flex; align-items: center; justify-content: center;">
+                                        {{ events.today_display.day | int }}
+                                    </div>
                                 </div>
-                                <div style="background-color: #ffffff; padding: 6px 12px; color: #1a73e8; font-size: 3.8rem; font-weight: 800; line-height: 1; letter-spacing: -1px;">
-                                    {{ events.today_display.day | int }}
-                                </div>
-                                <div style="background-color: #1557b0; padding: 8px 12px; font-size: 1.25rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #ffffff;">
+
+                                <!-- Right side: Weekday Banner (Darker Blue) -->
+                                <div style="background-color: #1d4ed8; color: #ffffff; padding: 0 16px; display: flex; align-items: center; justify-content: center; flex-grow: 1; font-size: 1.7rem; font-weight: 700; letter-spacing: 0.5px;">
                                     {{ events.today_display.weekday }}
                                 </div>
                             </div>
