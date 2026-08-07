@@ -101,7 +101,7 @@ def get_events():
         # Setup the display strings for the large Today header
         today_display = {
             'month': today_date.strftime('%B').upper(),
-            'day': today_date.strftime('%d'),
+            'day': str(today_date.day),
             'weekday': today_date.strftime('%A').upper()
         }
 
