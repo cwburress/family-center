@@ -1108,7 +1108,7 @@
                 radarLayers.push(layer);
             });
 
-            // Animation loop & simple timestamp updater
+            // Animation loop & simple timestamp updater (rounded to nearest 5 minutes)
             function updateRadarTimestamp(frameIdx) {
                 const tsEl = document.getElementById('radar-timestamp');
                 if (!tsEl) return;
@@ -1118,7 +1118,10 @@
                     const minsAgo = (numFrames - 1 - frameIdx) * 5;
                     frameTime = new Date(now.getTime() - minsAgo * 60000);
                 }
-                tsEl.innerText = frameTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                // Round timestamp to nearest 5 minutes
+                const roundedMs = Math.round(frameTime.getTime() / 300000) * 300000;
+                const roundedTime = new Date(roundedMs);
+                tsEl.innerText = roundedTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
             }
 
             let currentFrame = 0;
