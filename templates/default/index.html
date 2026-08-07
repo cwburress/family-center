@@ -90,7 +90,7 @@
 
         /* Translucent rounded panels */
         .panel {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.25);
             border-radius: 15px;
             padding: 20px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.03);
@@ -221,7 +221,7 @@
         .schedule-content { flex-grow: 1; overflow-y: auto; min-height: 0; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
         
         .day-card {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.25);
             border-radius: 12px;
             padding: 12px 15px;
             display: flex;
@@ -456,7 +456,7 @@
                     {% if events and events.today %}
                         <div style="display: flex; flex-direction: column; gap: 14px;">
                         {% for e in events.today %}
-                            <div style="background: rgba(255, 255, 255, 0.3); border-radius: 14px; padding: 16px 20px; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border: 1px solid rgba(255, 255, 255, 0.8); cursor: pointer; transition: transform 0.1s ease; {% if e.time_str == 'All day' %}background-color: rgba(232, 240, 254, 0.3); border-left: 5px solid #1a73e8;{% else %}border-left: 5px solid #34a853;{% endif %}" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'" onclick="openEventModal(this)" data-summary="{{ e.summary | e }}" data-start="{{ e.time_str }}" data-end="{{ e.end_time_str }}" data-loc="{{ e.location | e }}" data-desc="{{ e.description | e }}">
+                            <div style="background: rgba(255, 255, 255, 0.25); border-radius: 14px; padding: 16px 20px; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border: 1px solid rgba(255, 255, 255, 0.8); cursor: pointer; transition: transform 0.1s ease; {% if e.time_str == 'All day' %}background-color: rgba(232, 240, 254, 0.25); border-left: 5px solid #1a73e8;{% else %}border-left: 5px solid #34a853;{% endif %}" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'" onclick="openEventModal(this)" data-summary="{{ e.summary | e }}" data-start="{{ e.time_str }}" data-end="{{ e.end_time_str }}" data-loc="{{ e.location | e }}" data-desc="{{ e.description | e }}">
                                 <div style="color: #1a73e8; font-weight: 700; font-size: 1.15rem; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
                                     <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: #1a73e8;"></span>
                                     {{ e.time_str }}{% if e.end_time_str %} - {{ e.end_time_str }}{% endif %}
