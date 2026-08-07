@@ -513,9 +513,7 @@
             
             <div id="radar-panel" class="panel radar-box" style="{% if not (weather and weather.show_radar) %}display: none;{% endif %} position: relative;">
                 <div id="radar-container" style="height: 100%; width: 100%; z-index: 1;"></div>
-                <div id="radar-timestamp" style="position: absolute; bottom: 12px; right: 12px; z-index: 1000; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(6px); color: #ffffff; padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; border: 1px solid rgba(255, 255, 255, 0.25); pointer-events: none; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-                    <span style="color: #4ade80;">●</span> RADAR: LIVE
-                </div>
+                <div id="radar-timestamp" style="position: absolute; bottom: 12px; right: 12px; z-index: 1000; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(6px); color: #ffffff; padding: 5px 12px; border-radius: 8px; font-size: 0.95rem; font-weight: 700; border: 1px solid rgba(255, 255, 255, 0.25); pointer-events: none; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
             </div>
 
             <div class="panel forecast-wrapper">
@@ -1110,20 +1108,17 @@
                 radarLayers.push(layer);
             });
 
-            // Animation loop & timestamp updater
+            // Animation loop & simple timestamp updater
             function updateRadarTimestamp(frameIdx) {
                 const tsEl = document.getElementById('radar-timestamp');
                 if (!tsEl) return;
                 const now = new Date();
-                if (frameIdx === numFrames - 1 || !bgConfig.radar_loop) {
-                    const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-                    tsEl.innerHTML = `<span style="color: #4ade80;">●</span> RADAR: LIVE (${timeStr})`;
-                } else {
+                let frameTime = now;
+                if (bgConfig.radar_loop && frameIdx !== numFrames - 1) {
                     const minsAgo = (numFrames - 1 - frameIdx) * 5;
-                    const frameTime = new Date(now.getTime() - minsAgo * 60000);
-                    const timeStr = frameTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-                    tsEl.innerHTML = `<span style="color: #ffcc00;">●</span> RADAR: -${minsAgo}m (${timeStr})`;
+                    frameTime = new Date(now.getTime() - minsAgo * 60000);
                 }
+                tsEl.innerText = frameTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
             }
 
             let currentFrame = 0;
