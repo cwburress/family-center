@@ -593,23 +593,23 @@
     </div>
 
     <div id="event-modal-overlay" class="modal-overlay" onclick="this.style.display='none'">
-        <div class="lunch-modal" onclick="event.stopPropagation()" style="max-width: 500px;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 12px; margin-bottom: 15px;">
+        <div class="lunch-modal" onclick="event.stopPropagation()" style="max-width: 600px; padding: 25px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 15px; margin-bottom: 20px;">
                 <div>
-                    <h2 id="em-title" style="margin: 0 0 5px 0; color: #3c4043; font-size: 1.4rem;">Event Title</h2>
-                    <div id="em-time" style="color: #1a73e8; font-weight: 600; font-size: 0.95rem;">Time</div>
+                    <h2 id="em-title" style="margin: 0 0 6px 0; color: #202124; font-size: 2.2rem; font-weight: 800; line-height: 1.25;">Event Title</h2>
+                    <div id="em-time" style="color: #1a73e8; font-weight: 700; font-size: 1.4rem;">Time</div>
                 </div>
-                <button onclick="document.getElementById('event-modal-overlay').style.display='none'" style="background: none; border: none; font-size: 2rem; line-height: 1; color: #9aa0a6; cursor: pointer; padding: 0; margin-left: 15px;">&times;</button>
+                <button onclick="document.getElementById('event-modal-overlay').style.display='none'" style="background: none; border: none; font-size: 2.5rem; line-height: 1; color: #9aa0a6; cursor: pointer; padding: 0; margin-left: 15px;">&times;</button>
             </div>
             
-            <div id="em-loc-container" style="display: none; margin-bottom: 15px;">
-                <strong style="color: #70757a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Location</strong>
-                <div id="em-loc" style="color: #3c4043; font-size: 1.05rem; margin-top: 4px;"></div>
+            <div id="em-loc-container" style="display: none; margin-bottom: 20px;">
+                <strong style="color: #70757a; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700;">Location</strong>
+                <div id="em-loc" style="color: #202124; font-size: 1.5rem; margin-top: 6px; font-weight: 600; line-height: 1.4;"></div>
             </div>
 
             <div id="em-desc-container" style="display: none;">
-                <strong style="color: #70757a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Details</strong>
-                <div id="em-desc" style="color: #3c4043; font-size: 1.05rem; margin-top: 4px; line-height: 1.5; white-space: pre-wrap;"></div>
+                <strong style="color: #70757a; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700;">Details</strong>
+                <div id="em-desc" style="color: #3c4043; font-size: 1.5rem; margin-top: 6px; line-height: 1.5; white-space: pre-wrap; font-weight: 500;"></div>
             </div>
         </div>
     </div>
