@@ -88,9 +88,13 @@
         input:checked + .slider { background-color: #1a73e8; }
         input:checked + .slider:before { transform: translateX(20px); }
 
+        :root {
+            --panel-bg-opacity: 0.35;
+        }
+
         /* Translucent rounded panels */
         .panel {
-            background: rgba(255, 255, 255, 0.35);
+            background: rgba(255, 255, 255, var(--panel-bg-opacity, 0.35));
             border-radius: 15px;
             padding: 20px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.03);
@@ -221,7 +225,7 @@
         .schedule-content { flex-grow: 1; overflow-y: auto; min-height: 0; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
         
         .day-card {
-            background: rgba(255, 255, 255, 0.35);
+            background: rgba(255, 255, 255, var(--panel-bg-opacity, 0.35));
             border-radius: 12px;
             padding: 12px 15px;
             display: flex;
@@ -460,7 +464,7 @@
                     {% if events and events.today %}
                         <div style="display: flex; flex-direction: column; gap: 14px;">
                         {% for e in events.today %}
-                            <div style="background: rgba(255, 255, 255, 0.35); border-radius: 14px; padding: 16px 20px; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border: 1px solid rgba(255, 255, 255, 0.8); cursor: pointer; transition: transform 0.1s ease; {% if e.time_str == 'All day' %}background-color: rgba(232, 240, 254, 0.35); border-left: 5px solid #1a73e8;{% else %}border-left: 5px solid #34a853;{% endif %}" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'" onclick="openEventModal(this)" data-summary="{{ e.summary | e }}" data-start="{{ e.time_str }}" data-end="{{ e.end_time_str }}" data-loc="{{ e.location | e }}" data-desc="{{ e.description | e }}">
+                            <div style="background: rgba(255, 255, 255, var(--panel-bg-opacity, 0.35)); border-radius: 14px; padding: 16px 20px; box-shadow: 0 3px 10px rgba(0,0,0,0.04); border: 1px solid rgba(255, 255, 255, 0.8); cursor: pointer; transition: transform 0.1s ease; {% if e.time_str == 'All day' %}background-color: rgba(232, 240, 254, var(--panel-bg-opacity, 0.35)); border-left: 5px solid #1a73e8;{% else %}border-left: 5px solid #34a853;{% endif %}" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'" onclick="openEventModal(this)" data-summary="{{ e.summary | e }}" data-start="{{ e.time_str }}" data-end="{{ e.end_time_str }}" data-loc="{{ e.location | e }}" data-desc="{{ e.description | e }}">
                                 <div style="color: #1a73e8; font-weight: 700; font-size: 1.15rem; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
                                     <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: #1a73e8;"></span>
                                     {{ e.time_str }}{% if e.end_time_str %} - {{ e.end_time_str }}{% endif %}
@@ -671,6 +675,16 @@
                     <span style="font-size: 0.9rem; color: #3c4043; font-weight: 500;">Schedule Reset Idle Time (Sec):</span>
                     <input type="number" id="schedule-reset" value="15" min="5" onchange="saveConfig()" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; text-align: center;">
                 </div>
+                <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="color: #3c4043; font-size: 1.05rem;">Background Opacity</strong>
+                            <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Adjust panel translucency level</div>
+                        </div>
+                        <span id="panel-opacity-val" style="font-size: 1rem; font-weight: 700; color: #1a73e8; min-width: 45px; text-align: right;">35%</span>
+                    </div>
+                    <input type="range" id="panel-opacity-slider" min="10" max="100" value="35" step="1" oninput="applyPanelOpacity(this.value)" onchange="saveConfig()" style="width: 100%; margin-top: 6px; accent-color: #1a73e8; cursor: pointer;">
+                </div>
                 <div style="padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05); text-align: center;">
                     <button onclick="window.location.reload()" style="background: #ea4335; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.85rem; letter-spacing: 0.5px; width: 100%;">↻ Reload Dashboard (Clear Memory)</button>
                 </div>
@@ -693,9 +707,17 @@
     <div id="blackout-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; z-index: 20000; cursor: pointer;" onclick="snoozeBlackout()"></div>
 
     <script>
-        let bgConfig = { rotate: false, interval: 300, selected: [], available: [], radar_loop: true, radar_reset_interval: 10, schedule_reset_interval: 15 };
+        let bgConfig = { rotate: false, interval: 300, selected: [], available: [], radar_loop: true, radar_reset_interval: 10, schedule_reset_interval: 15, panel_opacity: 35 };
         let currentBgIndex = 0;
         let bgRotationInterval = null;
+
+        function applyPanelOpacity(val) {
+            const pct = parseInt(val, 10) || 35;
+            const labelEl = document.getElementById('panel-opacity-val');
+            if (labelEl) labelEl.innerText = pct + '%';
+            const alpha = (pct / 100).toFixed(2);
+            document.documentElement.style.setProperty('--panel-bg-opacity', alpha);
+        }
 
         async function loadConfig() {
             try {
@@ -705,11 +727,18 @@
                 if (bgConfig.radar_loop === undefined) bgConfig.radar_loop = true; 
                 if (bgConfig.radar_reset_interval === undefined) bgConfig.radar_reset_interval = 10;
                 if (bgConfig.schedule_reset_interval === undefined) bgConfig.schedule_reset_interval = 15;
+                if (bgConfig.panel_opacity === undefined) bgConfig.panel_opacity = 35;
+
                 document.getElementById('rotate-toggle').checked = bgConfig.rotate;
                 document.getElementById('rotate-interval').value = bgConfig.interval || 300;
                 document.getElementById('radar-toggle').checked = bgConfig.radar_loop;
                 document.getElementById('radar-reset').value = bgConfig.radar_reset_interval;
                 document.getElementById('schedule-reset').value = bgConfig.schedule_reset_interval;
+                
+                const slider = document.getElementById('panel-opacity-slider');
+                if (slider) slider.value = bgConfig.panel_opacity;
+                applyPanelOpacity(bgConfig.panel_opacity);
+
                 renderThumbnails();
                 applyBackground();
             } catch (e) { console.error("Failed to load config", e); }
@@ -722,6 +751,9 @@
             const radarResetVal = parseInt(document.getElementById('radar-reset').value, 10);
             bgConfig.radar_reset_interval = isNaN(radarResetVal) ? 10 : radarResetVal;
             bgConfig.schedule_reset_interval = parseInt(document.getElementById('schedule-reset').value, 10) || 15;
+            const opacityVal = parseInt(document.getElementById('panel-opacity-slider').value, 10);
+            bgConfig.panel_opacity = isNaN(opacityVal) ? 35 : opacityVal;
+
             try {
                 await fetch('/api/bg-settings', {
                     method: 'POST',
@@ -732,7 +764,8 @@
                         selected: bgConfig.selected, 
                         radar_loop: bgConfig.radar_loop,
                         radar_reset_interval: bgConfig.radar_reset_interval,
-                        schedule_reset_interval: bgConfig.schedule_reset_interval
+                        schedule_reset_interval: bgConfig.schedule_reset_interval,
+                        panel_opacity: bgConfig.panel_opacity
                     })
                 });
                 applyBackground();

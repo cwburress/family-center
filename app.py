@@ -36,10 +36,12 @@ def load_bg_settings():
                     settings["radar_reset_interval"] = 10
                 if "schedule_reset_interval" not in settings:
                     settings["schedule_reset_interval"] = 15
+                if "panel_opacity" not in settings:
+                    settings["panel_opacity"] = 35
                 return settings
         except Exception:
             pass
-    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "radar_loop": True, "radar_reset_interval": 10, "schedule_reset_interval": 15}
+    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "radar_loop": True, "radar_reset_interval": 10, "schedule_reset_interval": 15, "panel_opacity": 35}
 
 def save_bg_settings(settings):
     with open(SETTINGS_FILE, 'w') as f:
