@@ -247,7 +247,7 @@
         }
         .sched-month { color: #1a73e8; font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; line-height: 1; margin-bottom: 2px; }
         .sched-day { color: #000000; font-size: 1.6rem; font-weight: 700; line-height: 1; }
-        .sched-weekday { font-size: 0.65rem; font-weight: 700; color: #70757a; text-transform: uppercase; letter-spacing: 1px; }
+        .sched-weekday { font-size: 0.65rem; font-weight: 700; color: #000000; text-transform: uppercase; letter-spacing: 1px; }
         
         /* Today highlight */
         .today .schedule-date-square { background-color: #1a73e8; }
@@ -262,7 +262,7 @@
         .event-row:active { background-color: rgba(0, 0, 0, 0.05); }
         
         /* Time & Dot */
-        .time-col { width: 100px; flex-shrink: 0; font-size: 0.85rem; color: #70757a; font-weight: 400; padding-top: 1px; }
+        .time-col { width: 100px; flex-shrink: 0; font-size: 0.85rem; color: #000000; font-weight: 600; padding-top: 1px; }
         .dot { display: inline-block; width: 8px; height: 8px; background-color: #7986cb; border-radius: 50%; margin-right: 6px; }
         
         /* Event Title */
@@ -346,7 +346,7 @@
         .temp-label-high {
             font-size: 0.8rem;
             font-weight: 700;
-            color: #70757a;
+            color: #000000;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-right: 6px;
@@ -355,7 +355,7 @@
         .temp-label-low {
             font-size: 0.8rem;
             font-weight: 700;
-            color: #70757a;
+            color: #000000;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-left: -12px; /* Negative margin tucks it under the degree symbol */
@@ -368,8 +368,8 @@
         }
         .temp-slash {
             font-size: 3.5rem;
-            font-weight: 300;
-            color: #9aa0a6;
+            font-weight: 500;
+            color: #000000;
             margin: 0 2px;
         }
     </style>
@@ -433,14 +433,17 @@
 
             <div class="col-temp">
                 <div class="panel" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;">
-                    <div style="font-size: 0.85rem; font-weight: 700; color: #70757a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Right Now</div>
-                    <div style="font-size: 4rem; font-weight: 700; color: #3c4043; line-height: 1;">
+                    <div style="font-size: 0.85rem; font-weight: 800; color: #000000; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Right Now</div>
+                    <div style="font-size: 4rem; font-weight: 800; color: #000000; line-height: 1;">
                         {% if weather and weather.current_temp is not none %}
                             {{ weather.current_temp }}&deg;
                         {% else %}
                             --&deg;
                         {% endif %}
                     </div>
+                    {% if weather and weather.feels_like is not none %}
+                        <div style="font-size: 0.95rem; font-weight: 800; color: #000000; margin-top: 6px; letter-spacing: 0.5px;">Feels Like {{ weather.feels_like }}&deg;</div>
+                    {% endif %}
                 </div>
             </div>
             

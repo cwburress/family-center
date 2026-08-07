@@ -364,21 +364,26 @@ def get_weather():
         
         morning_temp, afternoon_temp, will_rain, hourly_display = parse_nws_forecast(hourly_periods)
         
-        # Grab current temp and max UV index from Open-Meteo for exact coordinates
+        # Grab current temp, feels_like, and max UV index from Open-Meteo for exact coordinates
         max_uv = 0
         current_temp = None
+        feels_like = None
         if HOME_LAT != '0.0' and HOME_LON != '0.0':
             try:
-                om_url = f"https://api.open-meteo.com/v1/forecast?latitude={HOME_LAT}&longitude={HOME_LON}&current=temperature_2m&daily=uv_index_max&timezone=auto&forecast_days=1&temperature_unit=fahrenheit"
+                om_url = f"https://api.open-meteo.com/v1/forecast?latitude={HOME_LAT}&longitude={HOME_LON}&current=temperature_2m,apparent_temperature&daily=uv_index_max&timezone=auto&forecast_days=1&temperature_unit=fahrenheit"
                 om_resp = requests.get(om_url, timeout=10)
                 if om_resp.status_code == 200:
                     om_data = om_resp.json()
                     max_uv = om_data.get('daily', {}).get('uv_index_max', [0])[0] or 0
                     
-                    # Grab the current temp and round it to a clean integer
+                    # Grab the current temp and feels_like and round to clean integers
                     raw_temp = om_data.get('current', {}).get('temperature_2m')
                     if raw_temp is not None:
                         current_temp = round(raw_temp)
+                    
+                    raw_feels = om_data.get('current', {}).get('apparent_temperature')
+                    if raw_feels is not None:
+                        feels_like = round(raw_feels)
             except Exception as e:
                 print(f"Open-Meteo API Error: {e}")
 
@@ -465,6 +470,7 @@ def get_weather():
             "morning_temp": morning_temp,
             "afternoon_temp": afternoon_temp,
             "current_temp": current_temp,
+            "feels_like": feels_like,
             "will_rain": will_rain,
             "clothing": clothing,
             "hourly": hourly_display,
