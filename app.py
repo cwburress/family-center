@@ -47,7 +47,7 @@ def save_bg_settings(settings):
     with open(SETTINGS_FILE, 'w') as f:
         json.dump(settings, f)
 
-SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 THEME = os.getenv('THEME', 'default')
 CALENDAR_ID = os.getenv('FAMILY_CALENDAR_ID', 'primary')
 HOME_LAT = os.getenv('HOME_LAT', '0.0')
@@ -524,11 +524,28 @@ def poll_service(service_name, fetch_func, interval_seconds):
             print(f"{service_name.capitalize()} Update Error: {e}")
         time.sleep(interval_seconds)
 
+def refresh_events_cache():
+    try:
+        new_events = get_events()
+        if new_events and not (isinstance(new_events, list) and new_events and new_events[0].get('summary', '').startswith('Auth Error')):
+            CACHE['events'] = new_events
+            print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Events cache forcefully updated.")
+    except Exception as e:
+        print(f"Error forcefully updating events cache: {e}")
+
 # Spin up isolated daemon threads so independent failures/delays don't block each other
 threading.Thread(target=poll_service, args=('events', get_events, CAL_POLL), daemon=True).start()
 threading.Thread(target=poll_service, args=('weather', get_weather, WX_POLL), daemon=True).start()
 threading.Thread(target=poll_service, args=('lunch', get_lunch_menu, LUNCH_POLL), daemon=True).start()
 threading.Thread(target=poll_service, args=('activity', get_school_activity, ACTIVITY_POLL), daemon=True).start()
+
+if os.getenv('AUTO_LOCATION_ENABLED', 'true').lower() in ('true', '1', 'yes'):
+    try:
+        from location_resolver import start_location_resolver_daemon
+        start_location_resolver_daemon(offset_seconds=60, on_update_callback=refresh_events_cache)
+        print("[INFO] Started Location Resolver daemon thread (triggers 60s after calendar poll).")
+    except Exception as e:
+        print(f"[WARNING] Failed to start Location Resolver daemon: {e}")
 
 # ==========================================
 # FLASK ROUTES
