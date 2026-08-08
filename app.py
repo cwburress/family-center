@@ -36,16 +36,18 @@ def load_bg_settings():
                     settings["radar_reset_interval"] = 10
                 if "schedule_reset_interval" not in settings:
                     settings["schedule_reset_interval"] = 15
+                if "panel_opacity" not in settings:
+                    settings["panel_opacity"] = 35
                 return settings
         except Exception:
             pass
-    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "radar_loop": True, "radar_reset_interval": 10, "schedule_reset_interval": 15}
+    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "radar_loop": True, "radar_reset_interval": 10, "schedule_reset_interval": 15, "panel_opacity": 35}
 
 def save_bg_settings(settings):
     with open(SETTINGS_FILE, 'w') as f:
         json.dump(settings, f)
 
-SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 THEME = os.getenv('THEME', 'default')
 CALENDAR_ID = os.getenv('FAMILY_CALENDAR_ID', 'primary')
 HOME_LAT = os.getenv('HOME_LAT', '0.0')
@@ -100,9 +102,9 @@ def get_events():
         
         # Setup the display strings for the large Today header
         today_display = {
-            'month': today_date.strftime('%B').upper(),
-            'day': today_date.strftime('%d'),
-            'weekday': today_date.strftime('%A').upper()
+            'month': today_date.strftime('%b').upper(),
+            'day': str(today_date.day),
+            'weekday': today_date.strftime('%A')
         }
 
         for event in raw_events:
@@ -364,21 +366,26 @@ def get_weather():
         
         morning_temp, afternoon_temp, will_rain, hourly_display = parse_nws_forecast(hourly_periods)
         
-        # Grab current temp and max UV index from Open-Meteo for exact coordinates
+        # Grab current temp, feels_like, and max UV index from Open-Meteo for exact coordinates
         max_uv = 0
         current_temp = None
+        feels_like = None
         if HOME_LAT != '0.0' and HOME_LON != '0.0':
             try:
-                om_url = f"https://api.open-meteo.com/v1/forecast?latitude={HOME_LAT}&longitude={HOME_LON}&current=temperature_2m&daily=uv_index_max&timezone=auto&forecast_days=1&temperature_unit=fahrenheit"
+                om_url = f"https://api.open-meteo.com/v1/forecast?latitude={HOME_LAT}&longitude={HOME_LON}&current=temperature_2m,apparent_temperature&daily=uv_index_max&timezone=auto&forecast_days=1&temperature_unit=fahrenheit"
                 om_resp = requests.get(om_url, timeout=10)
                 if om_resp.status_code == 200:
                     om_data = om_resp.json()
                     max_uv = om_data.get('daily', {}).get('uv_index_max', [0])[0] or 0
                     
-                    # Grab the current temp and round it to a clean integer
+                    # Grab the current temp and feels_like and round to clean integers
                     raw_temp = om_data.get('current', {}).get('temperature_2m')
                     if raw_temp is not None:
                         current_temp = round(raw_temp)
+                    
+                    raw_feels = om_data.get('current', {}).get('apparent_temperature')
+                    if raw_feels is not None:
+                        feels_like = round(raw_feels)
             except Exception as e:
                 print(f"Open-Meteo API Error: {e}")
 
@@ -465,6 +472,7 @@ def get_weather():
             "morning_temp": morning_temp,
             "afternoon_temp": afternoon_temp,
             "current_temp": current_temp,
+            "feels_like": feels_like,
             "will_rain": will_rain,
             "clothing": clothing,
             "hourly": hourly_display,
@@ -485,7 +493,7 @@ def get_lunch_menu():
         with open('menu.json', 'r') as f:
             menu_data = json.load(f)
         
-        today_str = datetime.datetime.now().strftime('%Y-%m-%d')
+        today_str = datetime.datetime.now(ZoneInfo(TIMEZONE)).strftime('%Y-%m-%d')
         return menu_data.get(today_str, None)
     except (FileNotFoundError, json.JSONDecodeError) as e:
         print(f"Menu Error: {e}")
@@ -516,11 +524,28 @@ def poll_service(service_name, fetch_func, interval_seconds):
             print(f"{service_name.capitalize()} Update Error: {e}")
         time.sleep(interval_seconds)
 
+def refresh_events_cache():
+    try:
+        new_events = get_events()
+        if new_events and not (isinstance(new_events, list) and new_events and new_events[0].get('summary', '').startswith('Auth Error')):
+            CACHE['events'] = new_events
+            print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Events cache forcefully updated.")
+    except Exception as e:
+        print(f"Error forcefully updating events cache: {e}")
+
 # Spin up isolated daemon threads so independent failures/delays don't block each other
 threading.Thread(target=poll_service, args=('events', get_events, CAL_POLL), daemon=True).start()
 threading.Thread(target=poll_service, args=('weather', get_weather, WX_POLL), daemon=True).start()
 threading.Thread(target=poll_service, args=('lunch', get_lunch_menu, LUNCH_POLL), daemon=True).start()
 threading.Thread(target=poll_service, args=('activity', get_school_activity, ACTIVITY_POLL), daemon=True).start()
+
+if os.getenv('AUTO_LOCATION_ENABLED', 'true').lower() in ('true', '1', 'yes'):
+    try:
+        from location_resolver import start_location_resolver_daemon
+        start_location_resolver_daemon(offset_seconds=60, on_update_callback=refresh_events_cache)
+        print("[INFO] Started Location Resolver daemon thread (triggers 60s after calendar poll).")
+    except Exception as e:
+        print(f"[WARNING] Failed to start Location Resolver daemon: {e}")
 
 # ==========================================
 # FLASK ROUTES
