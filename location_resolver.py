@@ -47,27 +47,11 @@ SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 CALENDAR_ID = os.getenv('FAMILY_CALENDAR_ID', 'primary')
 TIMEZONE = os.getenv('TIMEZONE', 'America/Chicago')
 CAL_POLL_MINUTES = int(os.getenv('CALENDAR_POLL_MINUTES', 5))
+GOOGLE_PLACES_API_KEY = os.getenv('GOOGLE_PLACES_API_KEY')
 MARKER = "📍 "
 
-# Known High Schools & Venues (Alma -> Van Buren / Fort Smith -> River Valley / NWA)
+# Known High Schools & Venues (River Valley / NWA Opponent Schools)
 KNOWN_VENUES = {
-    # Alma, AR (Primary Focus)
-    r'\balma\s*(hs|high|stadium|airedale)?\b': ("Airedale Stadium (Alma High School)", "101 E Main St, Alma, AR 72921"),
-    r'\balma\s*middle\b': ("Alma Middle School", "701 E Main St, Alma, AR 72921"),
-    r'\balma\s*intermediate\b': ("Alma Intermediate School", "201 E Main St, Alma, AR 72921"),
-    r'\balma\s*primary\b': ("Alma Primary School", "1205 Collum Ln W, Alma, AR 72921"),
-    r'\balma\s*library\b': ("Alma Public Library", "624 W Main St, Alma, AR 72921"),
-
-    # Van Buren & Fort Smith, AR
-    r'\bdermatology\s*center\b': ("The Dermatology Center", "7900 Dallas St, Fort Smith, AR 72903"),
-    r'\b(van buren|vb)\b': ("Citizens Bank Stadium (Van Buren High School)", "2001 Pointer Trail, Van Buren, AR 72956"),
-    r'\b(southside|fs southside|fort smith southside)\b': ("Jim Rowland Stadium (Fort Smith Southside HS)", "4100 Gary St, Fort Smith, AR 72903"),
-    r'\b(northside|fs northside|fort smith northside)\b': ("Grizzly Stadium (Fort Smith Northside HS)", "2301 N B St, Fort Smith, AR 72901"),
-    r'\b(chaffee|fort chaffee)\b': ("Chaffee Crossing", "7300 Ellis St, Fort Smith, AR 72916"),
-    r'\b(mercy\s*fort smith|mercy\b)': ("Mercy Hospital Fort Smith", "7300 Rogers Ave, Fort Smith, AR 72903"),
-    r'\b(baptist\s*fort smith|baptist\b)': ("Baptist Health-Fort Smith", "1001 Towson Ave, Fort Smith, AR 72901"),
-
-    # River Valley & NWA High Schools
     r'\brussellville\b': ("Cyclone Stadium (Russellville High School)", "2203 S Knoxville Ave, Russellville, AR 72802"),
     r'\bgreenwood\b': ("Smith-Robinson Stadium (Greenwood High School)", "400 E Gary St, Greenwood, AR 72936"),
     r'\bpea ridge\b': ("Blackhawk Stadium (Pea Ridge High School)", "781 W Pickens Rd, Pea Ridge, AR 72751"),
@@ -76,20 +60,7 @@ KNOWN_VENUES = {
     r'\bclarksville\b': ("Clarksville High School", "1701 Clark Rd, Clarksville, AR 72830"),
     r'\bfarmington\b': ("Farmington High School", "12329 N Rhea Mill Rd, Farmington, AR 72730"),
     r'\bharrison\b': ("F.S. Garrison Stadium (Harrison High School)", "925 S Stadium Dr, Harrison, AR 72601"),
-    r'\bvilonia\b': ("Phillip Weaver Stadium (Vilonia High School)", "1140 Main St, Vilonia, AR 72173"),
-
-    # Common Retail, Dining & Chains (Defaulting to Alma -> Van Buren -> Fort Smith)
-    r'\bpapa\'?s?\s*(pub|pizzeria|pizzaria)?\b': ("Papa's Pub & Pizzeria", "508 Garrison Ave, Fort Smith, AR 72901"),
-    r'\bwalmart\b': ("Walmart Supercenter", "367 W Cherry St, Alma, AR 72921"),
-    r'\bharps\b': ("Harps Food Store", "401 W Cherry St, Alma, AR 72921"),
-    r'\btaco bell\b': ("Taco Bell", "508 Hwy 71 N, Alma, AR 72921"),
-    r'\bmcdonald\'?s?\b': ("McDonald's", "410 Hwy 71 N, Alma, AR 72921"),
-    r'\bsonic\b': ("Sonic Drive-In", "609 Hwy 71 N, Alma, AR 72921"),
-    r'\bchick-?fil-?a\b': ("Chick-fil-A", "2200 Fayetteville Rd, Van Buren, AR 72956"),
-    r'\btarget\b': ("Target", "2900 S 74th St, Fort Smith, AR 72903"),
-    r'\bkroger\b': ("Kroger", "3120 Rogers Ave, Fort Smith, AR 72901"),
-    r'\blowe\'?s?\b': ("Lowe's Home Improvement", "1710 Beckman Rd, Van Buren, AR 72956"),
-    r'\bhome depot\b': ("The Home Depot", "5300 S 28th St, Fort Smith, AR 72901")
+    r'\bvilonia\b': ("Phillip Weaver Stadium (Vilonia High School)", "1140 Main St, Vilonia, AR 72173")
 }
 
 def clean_title(title):
@@ -106,11 +77,55 @@ GENERIC_WORDS = {
 }
 
 def geocode_location(query):
-    """Geocode search favoring Alma / Van Buren / Fort Smith / AR region via OpenStreetMap Nominatim."""
-    if not query or len(query.strip()) <= 3 or query.strip().lower() in GENERIC_WORDS:
+    q_low = query.strip().lower()
+    if not query or len(query.strip()) <= 3 or q_low in GENERIC_WORDS or any(w in q_low for w in ['birthday', 'buddies', 'first day of school', 'workout', 'house', 'home']):
         return None
+
+    search_query = f"{query.strip()}, Arkansas"
+
+    # 1. Try Google Places API if API key is provided
+    if GOOGLE_PLACES_API_KEY:
+        try:
+            # Try Places API (Legacy Text Search)
+            url = f"https://maps.googleapis.com/maps/api/place/textsearch/json?query={quote(search_query)}&key={GOOGLE_PLACES_API_KEY}"
+            resp = requests.get(url, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get('status') == 'OK' and data.get('results'):
+                    place = data['results'][0]
+                    name = place.get('name', '')
+                    address = place.get('formatted_address', '')
+                    if address:
+                        clean_addr = address.replace(', USA', '').replace(', United States', '').strip()
+                        if name and name.lower() not in clean_addr.lower():
+                            return f"{name}, {clean_addr}"
+                        return clean_addr
+
+            # Try Places API (New REST endpoint)
+            new_url = "https://places.googleapis.com/v1/places:searchText"
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+                'X-Goog-FieldMask': 'places.displayName,places.formattedAddress'
+            }
+            resp_new = requests.post(new_url, headers=headers, json={'textQuery': search_query}, timeout=5)
+            if resp_new.status_code == 200:
+                data_new = resp_new.json()
+                places = data_new.get('places', [])
+                if places:
+                    p = places[0]
+                    name = p.get('displayName', {}).get('text', '')
+                    address = p.get('formattedAddress', '')
+                    if address:
+                        clean_addr = address.replace(', USA', '').replace(', United States', '').strip()
+                        if name and name.lower() not in clean_addr.lower():
+                            return f"{name}, {clean_addr}"
+                        return clean_addr
+        except Exception as e:
+            logger.warning(f"Google Places API lookup error for '{query}': {e}")
+
+    # 2. OpenStreetMap Nominatim Fallback
     try:
-        search_query = f"{query}, Arkansas"
         url = f"https://nominatim.openstreetmap.org/search?q={quote(search_query)}&format=json&addressdetails=1&limit=1"
         headers = {'User-Agent': 'FamilyCenterLocationResolver/1.0 (alma-family-center)'}
         resp = requests.get(url, headers=headers, timeout=5)
@@ -130,7 +145,8 @@ def geocode_location(query):
                     street = f"{house_num} {road}".strip()
                     return f"{query}, {street}, {city}, {state} {postcode}".strip(', ')
     except Exception as e:
-        logger.warning(f"Geocoding lookup error for '{query}': {e}")
+        logger.warning(f"Nominatim geocoding lookup error for '{query}': {e}")
+
     return None
 
 def deduce_location(title, description=""):
@@ -168,8 +184,10 @@ def deduce_location(title, description=""):
         if re.search(pattern, text_to_search, re.IGNORECASE):
             return f"{venue_name}, {address}"
 
-    # 4. Geocode fallback ONLY if title has explicit venue indicators
-    if any(k in clean_t.lower() for k in ['stadium', 'high school', 'middle school', 'elementary', 'center', 'hospital', 'clinic', 'walmart', 'target', 'kroger', 'harps', 'park', 'library', 'chaffee', 'academy', 'field', 'gym', 'arena', 'hall', 'church at', 'church in']):
+    # 4. Geocode fallback (Google Places API handles any business/place query)
+    if GOOGLE_PLACES_API_KEY:
+        return geocode_location(clean_t)
+    elif any(k in clean_t.lower() for k in ['stadium', 'high school', 'middle school', 'elementary', 'center', 'hospital', 'clinic', 'walmart', 'target', 'kroger', 'harps', 'park', 'library', 'chaffee', 'academy', 'field', 'gym', 'arena', 'hall', 'church']):
         return geocode_location(clean_t)
 
     return None
