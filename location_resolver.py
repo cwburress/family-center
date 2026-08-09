@@ -1,5 +1,12 @@
 import os
 import sys
+
+# Auto-switch to project virtual environment Python if invoked via system python
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_venv_python = os.path.join(_script_dir, 'venv', 'bin', 'python3')
+if os.path.exists(_venv_python) and sys.executable != _venv_python:
+    os.execv(_venv_python, [_venv_python] + sys.argv)
+
 import re
 import time
 import json
