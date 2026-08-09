@@ -8,7 +8,6 @@ import threading
 import requests
 from urllib.parse import quote
 from datetime import datetime, timezone
-from dotenv import load_dotenv
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
@@ -24,7 +23,18 @@ logger = logging.getLogger("LocationResolver")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TOKEN_PATH = os.path.join(SCRIPT_DIR, 'token.json')
 
-load_dotenv(dotenv_path=os.path.join(SCRIPT_DIR, '.env'))
+try:
+    from dotenv import load_dotenv
+    load_dotenv(dotenv_path=os.path.join(SCRIPT_DIR, '.env'))
+except ImportError:
+    env_file = os.path.join(SCRIPT_DIR, '.env')
+    if os.path.exists(env_file):
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    k, v = line.split('=', 1)
+                    os.environ.setdefault(k.strip(), v.strip())
 
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 CALENDAR_ID = os.getenv('FAMILY_CALENDAR_ID', 'primary')
