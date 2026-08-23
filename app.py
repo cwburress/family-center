@@ -552,8 +552,11 @@ def save_activities(data):
 def get_school_activity():
     try:
         activity_data = load_activities()
-        today_name = datetime.datetime.now(ZoneInfo(TIMEZONE)).strftime('%A')
-        return activity_data.get(today_name, "None")
+        today = datetime.datetime.now(ZoneInfo(TIMEZONE))
+        today_name = today.strftime('%A')
+        if today.weekday() in (5, 6):  # Saturday or Sunday
+            return "No School Today!"
+        return activity_data.get(today_name, "No School Today!")
     except Exception as e:
         print(f"Activity Error: {e}")
         return "Unavailable"

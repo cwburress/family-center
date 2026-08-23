@@ -537,13 +537,13 @@
                     <h3 style="margin-bottom: 5px;">School Activity</h3>
                     <div style="font-size: 1.05rem; color: #3c4043; line-height: 1.4;">
                         {% if activity is string %}
-                            <span style="color: #1a73e8; font-weight: 600;">{{ activity }}</span>
+                            <span style="color: {% if activity == 'No School Today!' %}#70757a; font-style: italic;{% else %}#1a73e8;{% endif %} font-weight: 600;">{{ activity }}</span>
                         {% elif activity %}
                             {% for child, act in activity.items() %}
                                 <div style="margin-bottom: 4px;"><strong>{{ child }}:</strong> <span style="color: #1a73e8; font-weight: 600;">{{ act }}</span></div>
                             {% endfor %}
                         {% else %}
-                            <span style="color: #70757a; font-style: italic;">None</span>
+                            <span style="color: #70757a; font-style: italic; font-weight: 500;">No School Today!</span>
                         {% endif %}
                     </div>
                 </div>
