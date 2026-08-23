@@ -773,6 +773,7 @@
                 <button type="button" class="config-tab-btn active" id="tab-btn-general" onclick="switchConfigTab('general')">⚙️ Display & Radar</button>
                 <button type="button" class="config-tab-btn" id="tab-btn-backgrounds" onclick="switchConfigTab('backgrounds')">🖼️ Backgrounds</button>
                 <button type="button" class="config-tab-btn" id="tab-btn-activities" onclick="switchConfigTab('activities')">🎒 School Activities</button>
+                <button type="button" class="config-tab-btn" id="tab-btn-menu" onclick="switchConfigTab('menu')">🍽️ Lunch Menu</button>
             </div>
             
             <!-- Tab 1: Display & Radar -->
@@ -872,6 +873,37 @@
                     <button type="button" onclick="saveActivities()" style="background: #34a853; color: #ffffff; border: none; padding: 9px 20px; border-radius: 8px; font-size: 0.95rem; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(52,168,83,0.3);">
                         💾 Save Activities
                     </button>
+                </div>
+            </div>
+
+            <!-- Tab 4: School Lunch Menu -->
+            <div id="config-tab-menu" class="config-tab-pane config-scrollable">
+                <div style="display: flex; flex-direction: column; gap: 12px; background: rgba(0,0,0,0.03); padding: 14px; border-radius: 10px;">
+                    <div>
+                        <strong style="color: #3c4043; font-size: 1.05rem;">Upload Monthly Menu JSON</strong>
+                        <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">
+                            Upload a <code>menu.json</code> file containing monthly meals. New dates will be automatically merged into the existing schedule.
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 4px;">
+                        <label style="background: #1a73e8; color: white; padding: 8px 18px; border-radius: 20px; font-size: 0.85rem; cursor: pointer; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; display: inline-flex; align-items: center; gap: 6px;">
+                            📄 Choose JSON File
+                            <input type="file" id="menu-file-input" accept=".json,application/json" style="display: none;" onchange="uploadMenuFile(this)">
+                        </label>
+                        <span id="menu-upload-status" style="font-size: 0.9rem; font-weight: 700;"></span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <strong style="color: #1a73e8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">Current Menu Overview</strong>
+                        <span id="menu-total-count" style="font-size: 0.85rem; color: #5f6368; font-weight: 600;"></span>
+                    </div>
+
+                    <div id="menu-preview-list" style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="text-align: center; padding: 20px; color: #70757a; font-size: 0.9rem;">Loading menu data...</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1138,9 +1170,101 @@
             setTimeout(() => { if (statusLabel) statusLabel.innerText = ""; }, 3500);
         }
 
+        let currentMenuData = null;
+
+        async function loadMenuOverview() {
+            const listEl = document.getElementById('menu-preview-list');
+            const countEl = document.getElementById('menu-total-count');
+            if (!listEl) return;
+
+            try {
+                const res = await fetch('/api/menu?t=' + Date.now(), { cache: 'no-store' });
+                const data = await res.json();
+                currentMenuData = data;
+
+                if (countEl) {
+                    countEl.innerText = `${data.total_days || 0} days scheduled`;
+                }
+
+                listEl.innerHTML = '';
+                if (!data.upcoming || data.upcoming.length === 0) {
+                    listEl.innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: #70757a; background: rgba(0,0,0,0.02); border-radius: 8px; border: 1px dashed #ccc; font-size: 0.9rem;">
+                            No upcoming menu dates found. Upload a monthly <code>menu.json</code> file above.
+                        </div>
+                    `;
+                    return;
+                }
+
+                data.upcoming.forEach(item => {
+                    const row = document.createElement('div');
+                    row.style.cssText = "background: rgba(255,255,255,0.75); border: 1px solid rgba(0,0,0,0.08); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;";
+                    
+                    const entreesStr = item.entrees && item.entrees.length > 0 ? item.entrees.join(', ') : '<em style="color: #999;">None</em>';
+                    const sidesStr = item.sides && item.sides.length > 0 ? item.sides.join(', ') : '';
+
+                    row.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong style="color: #1a73e8; font-size: 0.95rem;">📅 ${item.date}</strong>
+                        </div>
+                        <div style="font-size: 0.9rem; color: #202124;"><strong>Entrees:</strong> ${entreesStr}</div>
+                        ${sidesStr ? `<div style="font-size: 0.85rem; color: #5f6368;"><strong>Sides:</strong> ${sidesStr}</div>` : ''}
+                    `;
+                    listEl.appendChild(row);
+                });
+            } catch (e) {
+                console.error("Failed to load menu overview", e);
+                if (listEl) {
+                    listEl.innerHTML = '<div style="color: #ea4335; text-align: center; padding: 15px;">Failed to load menu overview.</div>';
+                }
+            }
+        }
+
+        async function uploadMenuFile(input) {
+            if (!input.files || input.files.length === 0) return;
+            const file = input.files[0];
+            const statusLabel = document.getElementById('menu-upload-status');
+            if (statusLabel) {
+                statusLabel.style.color = '#1a73e8';
+                statusLabel.innerText = "Uploading & validating...";
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch('/api/upload-menu', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    if (statusLabel) {
+                        statusLabel.style.color = '#34a853';
+                        statusLabel.innerText = `Success! Merged ${data.count} dates (${data.total_days} total scheduled).`;
+                    }
+                    loadMenuOverview();
+                } else {
+                    if (statusLabel) {
+                        statusLabel.style.color = '#ea4335';
+                        statusLabel.innerText = data.error || "Upload failed.";
+                    }
+                }
+            } catch (e) {
+                console.error("Upload error", e);
+                if (statusLabel) {
+                    statusLabel.style.color = '#ea4335';
+                    statusLabel.innerText = "Upload failed. Please check network.";
+                }
+            }
+            input.value = "";
+            setTimeout(() => { if (statusLabel) statusLabel.innerText = ""; }, 5000);
+        }
+
         function openConfig() {
             loadConfig(); 
             loadActivities();
+            loadMenuOverview();
             document.getElementById('config-modal-overlay').style.display = 'flex';
         }
 

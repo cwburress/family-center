@@ -24,6 +24,7 @@ app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'backgrounds')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 SETTINGS_FILE = os.path.join(BASE_DIR, 'bg_settings.json')
 ACTIVITY_FILE = os.path.join(BASE_DIR, 'activity.json')
+MENU_FILE = os.path.join(BASE_DIR, 'menu.json')
 
 def load_bg_settings():
     if os.path.exists(SETTINGS_FILE):
@@ -505,14 +506,33 @@ def get_weather():
 # ==========================================
 # SCHOOL LUNCH LOGIC
 # ==========================================
+def load_menu():
+    if os.path.exists(MENU_FILE):
+        try:
+            with open(MENU_FILE, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Menu Error: {e}")
+    return {}
+
+def save_menu(menu_data, merge=True):
+    if merge:
+        current_data = load_menu()
+        current_data.update(menu_data)
+        data_to_write = current_data
+    else:
+        data_to_write = menu_data
+    with open(MENU_FILE, 'w') as f:
+        json.dump(data_to_write, f, indent=2)
+    # Refresh cache immediately
+    CACHE['lunch'] = get_lunch_menu()
+
 def get_lunch_menu():
     try:
-        with open('menu.json', 'r') as f:
-            menu_data = json.load(f)
-        
+        menu_data = load_menu()
         today_str = datetime.datetime.now(ZoneInfo(TIMEZONE)).strftime('%Y-%m-%d')
         return menu_data.get(today_str, None)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
+    except Exception as e:
         print(f"Menu Error: {e}")
         return None
 
@@ -663,6 +683,74 @@ def api_activities():
         except Exception as e:
             return jsonify({"error": str(e)}), 500
     return jsonify(load_activities())
+
+@app.route('/api/menu', methods=['GET'])
+def api_get_menu():
+    menu_data = load_menu()
+    today_str = datetime.datetime.now(ZoneInfo(TIMEZONE)).strftime('%Y-%m-%d')
+    upcoming = []
+    for d in sorted(menu_data.keys()):
+        if d >= today_str:
+            upcoming.append({"date": d, "entrees": menu_data[d].get("entrees", []), "sides": menu_data[d].get("sides", [])})
+            if len(upcoming) >= 15:
+                break
+    return jsonify({
+        "total_days": len(menu_data),
+        "upcoming": upcoming,
+        "menu": menu_data
+    })
+
+@app.route('/api/upload-menu', methods=['POST'])
+def api_upload_menu():
+    try:
+        menu_data = None
+        if 'file' in request.files:
+            file = request.files['file']
+            if file.filename == '':
+                return jsonify({"error": "No file selected"}), 400
+            content = file.read().decode('utf-8')
+            menu_data = json.loads(content)
+        elif request.is_json:
+            menu_data = request.json
+        else:
+            return jsonify({"error": "No JSON file or payload provided"}), 400
+
+        if not isinstance(menu_data, dict):
+            return jsonify({"error": "Root element must be a JSON object mapping date strings to meals"}), 400
+
+        # Validate entries
+        date_pattern = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+        valid_entries = {}
+        for k, v in menu_data.items():
+            if not isinstance(k, str) or not date_pattern.match(k.strip()):
+                continue
+            if not isinstance(v, dict):
+                continue
+            entrees = v.get('entrees', [])
+            sides = v.get('sides', [])
+            if not isinstance(entrees, list):
+                entrees = [str(entrees)]
+            if not isinstance(sides, list):
+                sides = [str(sides)]
+            valid_entries[k.strip()] = {
+                "entrees": entrees,
+                "sides": sides
+            }
+
+        if not valid_entries:
+            return jsonify({"error": "No valid meal date entries found (expected keys formatted as YYYY-MM-DD)"}), 400
+
+        save_menu(valid_entries, merge=True)
+
+        return jsonify({
+            "status": "success",
+            "count": len(valid_entries),
+            "total_days": len(load_menu())
+        })
+    except json.JSONDecodeError as jde:
+        return jsonify({"error": f"Invalid JSON syntax: {jde.msg}"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == '__main__':
