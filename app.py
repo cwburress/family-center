@@ -30,6 +30,8 @@ def load_bg_settings():
             with open(SETTINGS_FILE, 'r') as f:
                 settings = json.load(f)
                 # Ensure new keys exist for older configs
+                if "enable_radar" not in settings:
+                    settings["enable_radar"] = True
                 if "radar_loop" not in settings:
                     settings["radar_loop"] = True
                 if "radar_reset_interval" not in settings:
@@ -41,11 +43,21 @@ def load_bg_settings():
                 return settings
         except Exception:
             pass
-    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "radar_loop": True, "radar_reset_interval": 10, "schedule_reset_interval": 15, "panel_opacity": 35}
+    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "enable_radar": True, "radar_loop": True, "radar_reset_interval": 10, "schedule_reset_interval": 15, "panel_opacity": 35}
 
-def save_bg_settings(settings):
+def save_bg_settings(new_settings):
+    settings = load_bg_settings()
+    if isinstance(new_settings, dict):
+        settings.update(new_settings)
     with open(SETTINGS_FILE, 'w') as f:
         json.dump(settings, f)
+
+def is_radar_enabled():
+    env_enable = os.getenv('ENABLE_RADAR', 'true').lower() in ('true', '1', 'yes')
+    if not env_enable:
+        return False
+    settings = load_bg_settings()
+    return settings.get('enable_radar', True)
 
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 THEME = os.getenv('THEME', 'default')
@@ -468,6 +480,10 @@ def get_weather():
         if len(active_alerts) > 0:
             show_radar = True
 
+        # Config Override: Suppress radar visibility if disabled in config
+        if not is_radar_enabled():
+            show_radar = False
+
         return {
             "morning_temp": morning_temp,
             "afternoon_temp": afternoon_temp,
@@ -557,8 +573,9 @@ def index():
     weather = CACHE['weather'] or get_weather()
     lunch = CACHE['lunch'] or get_lunch_menu()
     activity = CACHE['activity'] or get_school_activity()
+    radar_enabled = is_radar_enabled()
     
-    return render_template(f'{THEME}/index.html', events=events, weather=weather, lunch=lunch, activity=activity, home_lat=HOME_LAT, home_lon=HOME_LON, ui_refresh=UI_REFRESH)
+    return render_template(f'{THEME}/index.html', events=events, weather=weather, lunch=lunch, activity=activity, home_lat=HOME_LAT, home_lon=HOME_LON, ui_refresh=UI_REFRESH, radar_enabled=radar_enabled)
 
 @app.route('/api/bg-settings', methods=['GET', 'POST'])
 def bg_settings():
