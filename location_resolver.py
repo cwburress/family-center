@@ -60,7 +60,9 @@ KNOWN_VENUES = {
     r'\bclarksville\b': ("Clarksville High School", "1701 Clark Rd, Clarksville, AR 72830"),
     r'\bfarmington\b': ("Farmington High School", "12329 N Rhea Mill Rd, Farmington, AR 72730"),
     r'\bharrison\b': ("F.S. Garrison Stadium (Harrison High School)", "925 S Stadium Dr, Harrison, AR 72601"),
-    r'\bvilonia\b': ("Phillip Weaver Stadium (Vilonia High School)", "1140 Main St, Vilonia, AR 72173")
+    r'\bvilonia\b': ("Phillip Weaver Stadium (Vilonia High School)", "1140 Main St, Vilonia, AR 72173"),
+    r'\bellie(?:\'s)?\s+dance\b': ("Ellie's Dance Practice", "101 E Main St, Alma, AR 72921"),
+    r'\bcrabtree\b': ("Crabtree Gymnasium (Alma High School)", "101 E Main St, Alma, AR 72921")
 }
 
 def clean_title(title):

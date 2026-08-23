@@ -404,13 +404,14 @@ def get_weather():
         
         morning_temp, afternoon_temp, will_rain, hourly_display = parse_nws_forecast(hourly_periods)
         
-        # Grab current temp, feels_like, and max UV index from Open-Meteo for exact coordinates
+        # Grab current temp, feels_like, max UV index, and daily heat index (apparent temp max) from Open-Meteo
         max_uv = 0
         current_temp = None
         feels_like = None
+        heat_index_map = {}
         if HOME_LAT != '0.0' and HOME_LON != '0.0':
             try:
-                om_url = f"https://api.open-meteo.com/v1/forecast?latitude={HOME_LAT}&longitude={HOME_LON}&current=temperature_2m,apparent_temperature&daily=uv_index_max&timezone=auto&forecast_days=1&temperature_unit=fahrenheit"
+                om_url = f"https://api.open-meteo.com/v1/forecast?latitude={HOME_LAT}&longitude={HOME_LON}&current=temperature_2m,apparent_temperature&daily=uv_index_max,apparent_temperature_max&timezone=auto&forecast_days=7&temperature_unit=fahrenheit"
                 om_resp = requests.get(om_url, timeout=10)
                 if om_resp.status_code == 200:
                     om_data = om_resp.json()
@@ -424,6 +425,14 @@ def get_weather():
                     raw_feels = om_data.get('current', {}).get('apparent_temperature')
                     if raw_feels is not None:
                         feels_like = round(raw_feels)
+
+                    # Build daily Heat Index map (YYYY-MM-DD -> rounded temp)
+                    om_daily = om_data.get('daily', {})
+                    times = om_daily.get('time', [])
+                    apparent_maxes = om_daily.get('apparent_temperature_max', [])
+                    for d_str, app_max in zip(times, apparent_maxes):
+                        if app_max is not None:
+                            heat_index_map[d_str] = round(app_max)
             except Exception as e:
                 print(f"Open-Meteo API Error: {e}")
 
@@ -451,6 +460,8 @@ def get_weather():
                 
             dt = datetime.datetime.fromisoformat(period['startTime'])
             day_name = dt.strftime('%a')
+            date_str = dt.strftime('%Y-%m-%d')
+            heat_idx = heat_index_map.get(date_str)
 
             if period['isDaytime'] and i + 1 < len(daily_periods_raw):
                 night_period = daily_periods_raw[i+1]
@@ -467,6 +478,7 @@ def get_weather():
                     'name': day_name,
                     'high': period['temperature'],
                     'low': night_period['temperature'],
+                    'heat_index': heat_idx,
                     'rain_chance': round(raw_chance / 5) * 5,
                     'short_forecast': period['shortForecast']
                 })
@@ -479,6 +491,7 @@ def get_weather():
                     'name': day_name,
                     'high': afternoon_temp,
                     'low': period['temperature'],
+                    'heat_index': heat_idx,
                     'rain_chance': round(night_pop / 5) * 5,
                     'short_forecast': period['shortForecast']
                 })
