@@ -286,6 +286,17 @@ def process_calendar_events(dry_run=False, service=None, on_update_callback=None
 
 DAEMON_LOCK_PATH = os.path.join(SCRIPT_DIR, '.location_resolver.lock')
 
+def is_location_resolver_enabled():
+    try:
+        settings_path = os.path.join(SCRIPT_DIR, 'bg_settings.json')
+        if os.path.exists(settings_path):
+            with open(settings_path, 'r') as f:
+                settings = json.load(f)
+                return settings.get('enable_location_resolver', True)
+    except Exception as e:
+        logger.warning(f"Error checking location resolver settings: {e}")
+    return os.getenv('AUTO_LOCATION_ENABLED', 'true').lower() in ('true', '1', 'yes')
+
 def start_location_resolver_daemon(offset_seconds=60, on_update_callback=None):
     """Start background loop. Uses a filesystem lock so only ONE Gunicorn worker runs the daemon."""
     import fcntl
@@ -308,7 +319,10 @@ def start_location_resolver_daemon(offset_seconds=60, on_update_callback=None):
         
         while True:
             try:
-                process_calendar_events(on_update_callback=on_update_callback)
+                if is_location_resolver_enabled():
+                    process_calendar_events(on_update_callback=on_update_callback)
+                else:
+                    logger.info("Location Resolver is disabled in settings — skipping sweep.")
             except Exception as e:
                 logger.error(f"Error during daemon sweep: {e}")
             

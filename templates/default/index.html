@@ -791,6 +791,16 @@
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
                         <div>
+                            <strong style="color: #3c4043; font-size: 1.05rem;">Enable Location Resolver</strong>
+                            <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Lookup travel times and coordinates for calendar events</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="enable-location-resolver-toggle" onchange="saveConfig()">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                        <div>
                             <strong style="color: #3c4043; font-size: 1.05rem;">Enable Radar Loop</strong>
                             <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Animate NEXRAD frames (high memory usage)</div>
                         </div>
@@ -930,6 +940,7 @@
                 const res = await fetch('/api/bg-settings?t=' + Date.now(), { cache: 'no-store' });
                 bgConfig = await res.json();
                 if (bgConfig.enable_radar === undefined) bgConfig.enable_radar = true;
+                if (bgConfig.enable_location_resolver === undefined) bgConfig.enable_location_resolver = true;
                 if (bgConfig.radar_loop === undefined) bgConfig.radar_loop = true; 
                 if (bgConfig.radar_reset_interval === undefined) bgConfig.radar_reset_interval = 10;
                 if (bgConfig.schedule_reset_interval === undefined) bgConfig.schedule_reset_interval = 15;
@@ -938,6 +949,7 @@
                 document.getElementById('rotate-toggle').checked = bgConfig.rotate;
                 document.getElementById('rotate-interval').value = bgConfig.interval || 300;
                 document.getElementById('enable-radar-toggle').checked = bgConfig.enable_radar;
+                document.getElementById('enable-location-resolver-toggle').checked = bgConfig.enable_location_resolver;
                 document.getElementById('radar-toggle').checked = bgConfig.radar_loop;
                 document.getElementById('radar-reset').value = bgConfig.radar_reset_interval;
                 document.getElementById('schedule-reset').value = bgConfig.schedule_reset_interval;
@@ -956,6 +968,7 @@
             bgConfig.rotate = document.getElementById('rotate-toggle').checked;
             bgConfig.interval = parseInt(document.getElementById('rotate-interval').value, 10) || 300;
             bgConfig.enable_radar = document.getElementById('enable-radar-toggle').checked;
+            bgConfig.enable_location_resolver = document.getElementById('enable-location-resolver-toggle').checked;
             bgConfig.radar_loop = document.getElementById('radar-toggle').checked;
             const radarResetVal = parseInt(document.getElementById('radar-reset').value, 10);
             bgConfig.radar_reset_interval = isNaN(radarResetVal) ? 10 : radarResetVal;
@@ -972,6 +985,7 @@
                         interval: bgConfig.interval, 
                         selected: bgConfig.selected, 
                         enable_radar: bgConfig.enable_radar,
+                        enable_location_resolver: bgConfig.enable_location_resolver,
                         radar_loop: bgConfig.radar_loop,
                         radar_reset_interval: bgConfig.radar_reset_interval,
                         schedule_reset_interval: bgConfig.schedule_reset_interval,

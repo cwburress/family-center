@@ -34,6 +34,8 @@ def load_bg_settings():
                 # Ensure new keys exist for older configs
                 if "enable_radar" not in settings:
                     settings["enable_radar"] = True
+                if "enable_location_resolver" not in settings:
+                    settings["enable_location_resolver"] = True
                 if "radar_loop" not in settings:
                     settings["radar_loop"] = True
                 if "radar_reset_interval" not in settings:
@@ -45,7 +47,7 @@ def load_bg_settings():
                 return settings
         except Exception:
             pass
-    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "enable_radar": True, "radar_loop": True, "radar_reset_interval": 10, "schedule_reset_interval": 15, "panel_opacity": 35}
+    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "enable_radar": True, "enable_location_resolver": True, "radar_loop": True, "radar_reset_interval": 10, "schedule_reset_interval": 15, "panel_opacity": 35}
 
 def save_bg_settings(new_settings):
     settings = load_bg_settings()
