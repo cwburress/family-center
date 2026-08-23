@@ -36,6 +36,8 @@ def load_bg_settings():
                     settings["enable_radar"] = True
                 if "enable_location_resolver" not in settings:
                     settings["enable_location_resolver"] = True
+                if "enable_clothing" not in settings:
+                    settings["enable_clothing"] = True
                 if "radar_loop" not in settings:
                     settings["radar_loop"] = True
                 if "radar_reset_interval" not in settings:
@@ -47,7 +49,7 @@ def load_bg_settings():
                 return settings
         except Exception:
             pass
-    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "enable_radar": True, "enable_location_resolver": True, "radar_loop": True, "radar_reset_interval": 10, "schedule_reset_interval": 15, "panel_opacity": 35}
+    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "enable_radar": True, "enable_location_resolver": True, "enable_clothing": True, "radar_loop": True, "radar_reset_interval": 10, "schedule_reset_interval": 15, "panel_opacity": 35}
 
 def save_bg_settings(new_settings):
     settings = load_bg_settings()
@@ -62,6 +64,10 @@ def is_radar_enabled():
         return False
     settings = load_bg_settings()
     return settings.get('enable_radar', True)
+
+def is_clothing_enabled():
+    settings = load_bg_settings()
+    return settings.get('enable_clothing', True)
 
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 THEME = os.getenv('THEME', 'default')
@@ -674,7 +680,8 @@ def index():
         home_lat=HOME_LAT,
         home_lon=HOME_LON,
         ui_refresh=UI_REFRESH,
-        radar_enabled=radar_enabled
+        radar_enabled=radar_enabled,
+        clothing_enabled=is_clothing_enabled()
     )
 
 @app.route('/api/bg-settings', methods=['GET', 'POST'])
