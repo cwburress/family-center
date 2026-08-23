@@ -23,6 +23,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'backgrounds')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 SETTINGS_FILE = os.path.join(BASE_DIR, 'bg_settings.json')
+ACTIVITY_FILE = os.path.join(BASE_DIR, 'activity.json')
 
 def load_bg_settings():
     if os.path.exists(SETTINGS_FILE):
@@ -515,14 +516,27 @@ def get_lunch_menu():
         print(f"Menu Error: {e}")
         return None
 
+def load_activities():
+    if os.path.exists(ACTIVITY_FILE):
+        try:
+            with open(ACTIVITY_FILE, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading activities: {e}")
+    return {}
+
+def save_activities(data):
+    with open(ACTIVITY_FILE, 'w') as f:
+        json.dump(data, f, indent=2)
+    # Refresh cache immediately
+    CACHE['activity'] = get_school_activity()
+
 def get_school_activity():
     try:
-        with open('activity.json', 'r') as f:
-            activity_data = json.load(f)
-        
+        activity_data = load_activities()
         today_name = datetime.datetime.now(ZoneInfo(TIMEZONE)).strftime('%A')
         return activity_data.get(today_name, "None")
-    except (FileNotFoundError, json.JSONDecodeError) as e:
+    except Exception as e:
         print(f"Activity Error: {e}")
         return "Unavailable"
 
@@ -636,6 +650,19 @@ def upload_bg():
             
         print(f"-----------------------------------\n")
         return jsonify({"status": "success", "filename": filename})
+
+@app.route('/api/activities', methods=['GET', 'POST'])
+def api_activities():
+    if request.method == 'POST':
+        try:
+            data = request.json
+            if not isinstance(data, dict):
+                return jsonify({"error": "Invalid data format"}), 400
+            save_activities(data)
+            return jsonify({"status": "success", "data": data})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    return jsonify(load_activities())
 
 
 if __name__ == '__main__':

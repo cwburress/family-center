@@ -185,6 +185,132 @@
             box-shadow: 0 10px 40px rgba(0,0,0,0.2);
             border: 1px solid rgba(255, 255, 255, 0.8);
         }
+
+        /* Config Modal & Tabs */
+        .config-modal {
+            max-width: 680px;
+            width: 92%;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+        }
+
+        .config-tabs-nav {
+            display: flex;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.05);
+            padding: 5px;
+            border-radius: 10px;
+            margin-bottom: 18px;
+        }
+
+        .config-tab-btn {
+            flex: 1;
+            padding: 9px 12px;
+            border: none;
+            background: transparent;
+            color: #5f6368;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .config-tab-btn:hover {
+            background: rgba(255, 255, 255, 0.5);
+            color: #202124;
+        }
+
+        .config-tab-btn.active {
+            background: #ffffff;
+            color: #1a73e8;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .config-tab-pane {
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .config-tab-pane.active {
+            display: flex;
+        }
+
+        .config-scrollable {
+            max-height: 56vh;
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+
+        .config-scrollable::-webkit-scrollbar {
+            width: 6px;
+        }
+        .config-scrollable::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.04);
+            border-radius: 4px;
+        }
+        .config-scrollable::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        .config-scrollable::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.35);
+        }
+
+        .kid-activity-card {
+            background: rgba(255, 255, 255, 0.75);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+        }
+
+        .day-activity-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .day-activity-col {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .day-badge {
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #1a73e8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+
+        .activity-input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 7px 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            background: #ffffff;
+            text-align: center;
+        }
+        .activity-input:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+        }
+
         .clothing-box { 
             flex: 0.8; /* Shrunk down to just fit the bullet points */
         }
@@ -636,81 +762,118 @@
     </div>
 
     <div id="config-modal-overlay" class="modal-overlay" onclick="closeConfig()">
-        <div class="lunch-modal" onclick="event.stopPropagation()" style="max-width: 600px; max-height: 85vh; display: flex; flex-direction: column;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 12px; margin-bottom: 15px;">
+        <div class="lunch-modal config-modal" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 12px; margin-bottom: 14px;">
                 <h2 style="margin: 0; color: #3c4043; font-size: 1.4rem;">Dashboard Settings</h2>
                 <button onclick="closeConfig()" style="background: none; border: none; font-size: 2rem; line-height: 1; color: #9aa0a6; cursor: pointer; padding: 0; margin-left: 15px;">&times;</button>
             </div>
+
+            <!-- Tab Navigation -->
+            <div class="config-tabs-nav">
+                <button type="button" class="config-tab-btn active" id="tab-btn-general" onclick="switchConfigTab('general')">⚙️ Display & Radar</button>
+                <button type="button" class="config-tab-btn" id="tab-btn-backgrounds" onclick="switchConfigTab('backgrounds')">🖼️ Backgrounds</button>
+                <button type="button" class="config-tab-btn" id="tab-btn-activities" onclick="switchConfigTab('activities')">🎒 School Activities</button>
+            </div>
             
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; background: rgba(0,0,0,0.03); padding: 12px; border-radius: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong style="color: #3c4043; font-size: 1.05rem;">Rotate Backgrounds</strong>
-                        <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Automatically cycle through selected images</div>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" id="rotate-toggle" onchange="saveConfig()">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
-                    <span style="font-size: 0.9rem; color: #3c4043; font-weight: 500;">Rotation Interval (Seconds):</span>
-                    <input type="number" id="rotate-interval" value="300" min="10" onchange="saveConfig()" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; text-align: center;">
-                </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
-                    <div>
-                        <strong style="color: #3c4043; font-size: 1.05rem;">Enable Weather Radar</strong>
-                        <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Show radar during precipitation/alerts; stretch forecast when off</div>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" id="enable-radar-toggle" onchange="saveConfig()">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
-                    <div>
-                        <strong style="color: #3c4043; font-size: 1.05rem;">Enable Radar Loop</strong>
-                        <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Animate NEXRAD frames (high memory usage)</div>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" id="radar-toggle" onchange="saveConfig()">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
-                    <span style="font-size: 0.9rem; color: #3c4043; font-weight: 500;">Radar Reset Idle Time (Sec):</span>
-                    <input type="number" id="radar-reset" value="10" min="0" onchange="saveConfig()" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; text-align: center;">
-                </div>
-                <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
-                    <span style="font-size: 0.9rem; color: #3c4043; font-weight: 500;">Schedule Reset Idle Time (Sec):</span>
-                    <input type="number" id="schedule-reset" value="15" min="5" onchange="saveConfig()" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; text-align: center;">
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+            <!-- Tab 1: Display & Radar -->
+            <div id="config-tab-general" class="config-tab-pane active config-scrollable">
+                <div style="display: flex; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.03); padding: 14px; border-radius: 10px;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <strong style="color: #3c4043; font-size: 1.05rem;">Background Opacity</strong>
-                            <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Adjust panel translucency level</div>
+                            <strong style="color: #3c4043; font-size: 1.05rem;">Enable Weather Radar</strong>
+                            <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Show radar during precipitation/alerts; stretch forecast when off</div>
                         </div>
-                        <span id="panel-opacity-val" style="font-size: 1rem; font-weight: 700; color: #1a73e8; min-width: 45px; text-align: right;">35%</span>
+                        <label class="switch">
+                            <input type="checkbox" id="enable-radar-toggle" onchange="saveConfig()">
+                            <span class="slider"></span>
+                        </label>
                     </div>
-                    <input type="range" id="panel-opacity-slider" min="10" max="100" value="35" step="1" oninput="applyPanelOpacity(this.value)" onchange="saveConfig()" style="width: 100%; margin-top: 6px; accent-color: #1a73e8; cursor: pointer;">
-                </div>
-                <div style="padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05); text-align: center;">
-                    <button onclick="window.location.reload()" style="background: #ea4335; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.85rem; letter-spacing: 0.5px; width: 100%;">↻ Reload Dashboard (Clear Memory)</button>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                        <div>
+                            <strong style="color: #3c4043; font-size: 1.05rem;">Enable Radar Loop</strong>
+                            <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Animate NEXRAD frames (high memory usage)</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="radar-toggle" onchange="saveConfig()">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                        <span style="font-size: 0.9rem; color: #3c4043; font-weight: 500;">Radar Reset Idle Time (Sec):</span>
+                        <input type="number" id="radar-reset" value="10" min="0" onchange="saveConfig()" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; text-align: center;">
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                        <span style="font-size: 0.9rem; color: #3c4043; font-weight: 500;">Schedule Reset Idle Time (Sec):</span>
+                        <input type="number" id="schedule-reset" value="15" min="5" onchange="saveConfig()" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; text-align: center;">
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong style="color: #3c4043; font-size: 1.05rem;">Background Opacity</strong>
+                                <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Adjust panel translucency level</div>
+                            </div>
+                            <span id="panel-opacity-val" style="font-size: 1rem; font-weight: 700; color: #1a73e8; min-width: 45px; text-align: right;">35%</span>
+                        </div>
+                        <input type="range" id="panel-opacity-slider" min="10" max="100" value="35" step="1" oninput="applyPanelOpacity(this.value)" onchange="saveConfig()" style="width: 100%; margin-top: 6px; accent-color: #1a73e8; cursor: pointer;">
+                    </div>
+                    <div style="padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05); text-align: center;">
+                        <button onclick="window.location.reload()" style="background: #ea4335; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.85rem; letter-spacing: 0.5px; width: 100%;">↻ Reload Dashboard (Clear Memory)</button>
+                    </div>
                 </div>
             </div>
 
-            <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 15px;">
-                <label style="background: #1a73e8; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; cursor: pointer; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">
-                    Upload Photo
-                    <input type="file" id="bg-upload" accept="image/*" style="display: none;" onchange="uploadBackground(this)">
-                </label>
-                <span id="upload-status" style="font-size: 0.9rem; font-weight: bold; color: #34a853;"></span>
+            <!-- Tab 2: Backgrounds -->
+            <div id="config-tab-backgrounds" class="config-tab-pane config-scrollable">
+                <div style="display: flex; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.03); padding: 14px; border-radius: 10px; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="color: #3c4043; font-size: 1.05rem;">Rotate Backgrounds</strong>
+                            <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Automatically cycle through selected images</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="rotate-toggle" onchange="saveConfig()">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                        <span style="font-size: 0.9rem; color: #3c4043; font-weight: 500;">Rotation Interval (Seconds):</span>
+                        <input type="number" id="rotate-interval" value="300" min="10" onchange="saveConfig()" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; text-align: center;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 15px;">
+                    <label style="background: #1a73e8; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; cursor: pointer; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">
+                        Upload Photo
+                        <input type="file" id="bg-upload" accept="image/*" style="display: none;" onchange="uploadBackground(this)">
+                    </label>
+                    <span id="upload-status" style="font-size: 0.9rem; font-weight: bold; color: #34a853;"></span>
+                </div>
+
+                <strong style="color: #1a73e8; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; margin-bottom: 8px; display: block;">Available Backgrounds</strong>
+                <div id="thumb-container" class="thumb-grid"></div>
             </div>
 
-            <strong style="color: #1a73e8; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 10px; display: block;">Available Backgrounds</strong>
-            <div id="thumb-container" class="thumb-grid">
+            <!-- Tab 3: School Activities -->
+            <div id="config-tab-activities" class="config-tab-pane config-scrollable">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 2px;">
+                    <div>
+                        <strong style="color: #3c4043; font-size: 1.05rem;">Student Activities</strong>
+                        <div style="font-size: 0.85rem; color: #70757a;">Assign a school activity for each weekday per child.</div>
+                    </div>
+                    <button type="button" onclick="addKid()" style="background: #1a73e8; color: #ffffff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 5px rgba(26,115,232,0.3);">
+                        ＋ Add Child
+                    </button>
                 </div>
+
+                <div id="kids-activities-container"></div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.08);">
+                    <span id="activity-save-status" style="font-size: 0.9rem; font-weight: 700;"></span>
+                    <button type="button" onclick="saveActivities()" style="background: #34a853; color: #ffffff; border: none; padding: 9px 20px; border-radius: 8px; font-size: 0.95rem; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(52,168,83,0.3);">
+                        💾 Save Activities
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -788,8 +951,196 @@
             } catch (e) { console.error("Failed to save config", e); }
         }
 
+        function switchConfigTab(tabName) {
+            document.querySelectorAll('.config-tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.config-tab-pane').forEach(pane => pane.classList.remove('active'));
+
+            const btn = document.getElementById('tab-btn-' + tabName);
+            const pane = document.getElementById('config-tab-' + tabName);
+            if (btn) btn.classList.add('active');
+            if (pane) pane.classList.add('active');
+        }
+
+        const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        let kidsList = [];
+
+        function parseActivitiesDataToKids(data) {
+            const kidNames = [];
+            WEEKDAYS.forEach(day => {
+                if (data && data[day] && typeof data[day] === 'object') {
+                    Object.keys(data[day]).forEach(name => {
+                        if (!kidNames.includes(name)) {
+                            kidNames.push(name);
+                        }
+                    });
+                }
+            });
+
+            return kidNames.map(name => {
+                const kid = { name: name };
+                WEEKDAYS.forEach(day => {
+                    kid[day] = (data && data[day] && data[day][name]) ? data[day][name] : '';
+                });
+                return kid;
+            });
+        }
+
+        function syncKidsFromDOM() {
+            const cards = document.querySelectorAll('.kid-activity-card');
+            const updated = [];
+            cards.forEach(card => {
+                const nameInput = card.querySelector('.kid-name-input');
+                const name = nameInput ? nameInput.value.trim() : '';
+                const kid = { name: name };
+                WEEKDAYS.forEach(day => {
+                    const dayInput = card.querySelector(`.activity-input[data-day="${day}"]`);
+                    kid[day] = dayInput ? dayInput.value.trim() : '';
+                });
+                updated.push(kid);
+            });
+            kidsList = updated;
+        }
+
+        function renderKidsActivities() {
+            const container = document.getElementById('kids-activities-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (kidsList.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 25px; color: #70757a; background: rgba(0,0,0,0.02); border-radius: 10px; border: 1px dashed #ccc;">
+                        No children configured. Click <strong>"＋ Add Child"</strong> above to add one.
+                    </div>
+                `;
+                return;
+            }
+
+            kidsList.forEach((kid, idx) => {
+                const card = document.createElement('div');
+                card.className = 'kid-activity-card';
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px; flex-grow: 1; margin-right: 12px;">
+                            <span style="font-size: 1.2rem;">👤</span>
+                            <input type="text" class="kid-name-input" value="${kid.name ? kid.name.replace(/"/g, '&quot;') : ''}" placeholder="Child's Name" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-weight: 700; font-size: 1rem; color: #202124; width: 100%; max-width: 200px;">
+                        </div>
+                        <button type="button" onclick="removeKid(${idx})" title="Delete Child" style="background: rgba(234, 67, 53, 0.1); color: #ea4335; border: 1px solid rgba(234, 67, 53, 0.2); border-radius: 6px; padding: 5px 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                            🗑️ Remove
+                        </button>
+                    </div>
+                    <div class="day-activity-grid">
+                        <div class="day-activity-col">
+                            <span class="day-badge">Mon</span>
+                            <input type="text" class="activity-input" data-day="Monday" value="${kid.Monday ? kid.Monday.replace(/"/g, '&quot;') : ''}" placeholder="Activity">
+                        </div>
+                        <div class="day-activity-col">
+                            <span class="day-badge">Tue</span>
+                            <input type="text" class="activity-input" data-day="Tuesday" value="${kid.Tuesday ? kid.Tuesday.replace(/"/g, '&quot;') : ''}" placeholder="Activity">
+                        </div>
+                        <div class="day-activity-col">
+                            <span class="day-badge">Wed</span>
+                            <input type="text" class="activity-input" data-day="Wednesday" value="${kid.Wednesday ? kid.Wednesday.replace(/"/g, '&quot;') : ''}" placeholder="Activity">
+                        </div>
+                        <div class="day-activity-col">
+                            <span class="day-badge">Thu</span>
+                            <input type="text" class="activity-input" data-day="Thursday" value="${kid.Thursday ? kid.Thursday.replace(/"/g, '&quot;') : ''}" placeholder="Activity">
+                        </div>
+                        <div class="day-activity-col">
+                            <span class="day-badge">Fri</span>
+                            <input type="text" class="activity-input" data-day="Friday" value="${kid.Friday ? kid.Friday.replace(/"/g, '&quot;') : ''}" placeholder="Activity">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function addKid() {
+            syncKidsFromDOM();
+            kidsList.push({
+                name: 'Child ' + (kidsList.length + 1),
+                Monday: '',
+                Tuesday: '',
+                Wednesday: '',
+                Thursday: '',
+                Friday: ''
+            });
+            renderKidsActivities();
+        }
+
+        function removeKid(idx) {
+            syncKidsFromDOM();
+            kidsList.splice(idx, 1);
+            renderKidsActivities();
+        }
+
+        async function loadActivities() {
+            try {
+                const res = await fetch('/api/activities?t=' + Date.now(), { cache: 'no-store' });
+                const data = await res.json();
+                kidsList = parseActivitiesDataToKids(data);
+                renderKidsActivities();
+            } catch (e) {
+                console.error("Failed to load school activities", e);
+            }
+        }
+
+        async function saveActivities() {
+            syncKidsFromDOM();
+            const statusLabel = document.getElementById('activity-save-status');
+            if (statusLabel) {
+                statusLabel.style.color = '#1a73e8';
+                statusLabel.innerText = "Saving...";
+            }
+
+            const payload = {
+                "Monday": {},
+                "Tuesday": {},
+                "Wednesday": {},
+                "Thursday": {},
+                "Friday": {}
+            };
+
+            kidsList.forEach(kid => {
+                const name = kid.name.trim();
+                if (name) {
+                    WEEKDAYS.forEach(day => {
+                        payload[day][name] = kid[day] ? kid[day].trim() : '';
+                    });
+                }
+            });
+
+            try {
+                const res = await fetch('/api/activities', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const resData = await res.json();
+                if (resData.status === 'success') {
+                    if (statusLabel) {
+                        statusLabel.style.color = '#34a853';
+                        statusLabel.innerText = "Saved successfully!";
+                    }
+                } else {
+                    if (statusLabel) {
+                        statusLabel.style.color = '#ea4335';
+                        statusLabel.innerText = "Error saving.";
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to save activities", e);
+                if (statusLabel) {
+                    statusLabel.style.color = '#ea4335';
+                    statusLabel.innerText = "Failed to save.";
+                }
+            }
+            setTimeout(() => { if (statusLabel) statusLabel.innerText = ""; }, 3500);
+        }
+
         function openConfig() {
             loadConfig(); 
+            loadActivities();
             document.getElementById('config-modal-overlay').style.display = 'flex';
         }
 
