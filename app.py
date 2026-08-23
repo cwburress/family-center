@@ -38,6 +38,8 @@ def load_bg_settings():
                     settings["enable_location_resolver"] = True
                 if "enable_clothing" not in settings:
                     settings["enable_clothing"] = True
+                if "radar_coords" not in settings:
+                    settings["radar_coords"] = f"{HOME_LAT}, {HOME_LON}" if (HOME_LAT != '0.0' or HOME_LON != '0.0') else ""
                 if "radar_loop" not in settings:
                     settings["radar_loop"] = True
                 if "radar_reset_interval" not in settings:
@@ -49,7 +51,8 @@ def load_bg_settings():
                 return settings
         except Exception:
             pass
-    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "enable_radar": True, "enable_location_resolver": True, "enable_clothing": True, "radar_loop": True, "radar_reset_interval": 10, "schedule_reset_interval": 15, "panel_opacity": 35}
+    default_coords = f"{HOME_LAT}, {HOME_LON}" if (HOME_LAT != '0.0' or HOME_LON != '0.0') else ""
+    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "enable_radar": True, "enable_location_resolver": True, "enable_clothing": True, "radar_coords": default_coords, "radar_loop": True, "radar_reset_interval": 10, "schedule_reset_interval": 15, "panel_opacity": 35}
 
 def save_bg_settings(new_settings):
     settings = load_bg_settings()
@@ -68,6 +71,23 @@ def is_radar_enabled():
 def is_clothing_enabled():
     settings = load_bg_settings()
     return settings.get('enable_clothing', True)
+
+def get_radar_coordinates():
+    settings = load_bg_settings()
+    custom_coords = settings.get('radar_coords', '').strip()
+    if custom_coords:
+        try:
+            parts = [p.strip() for p in custom_coords.replace(',', ' ').split() if p.strip()]
+            if len(parts) >= 2:
+                lat = float(parts[0])
+                lon = float(parts[1])
+                return lat, lon
+        except Exception:
+            pass
+    try:
+        return float(HOME_LAT or 0.0), float(HOME_LON or 0.0)
+    except Exception:
+        return 0.0, 0.0
 
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 THEME = os.getenv('THEME', 'default')
@@ -667,6 +687,8 @@ def index():
         tomorrow_button_label = "TOMORROW"
         tomorrow_date_str = ''
 
+    radar_lat, radar_lon = get_radar_coordinates()
+
     return render_template(
         f'{THEME}/index.html',
         events=events,
@@ -679,6 +701,8 @@ def index():
         activity=activity,
         home_lat=HOME_LAT,
         home_lon=HOME_LON,
+        radar_lat=radar_lat,
+        radar_lon=radar_lon,
         ui_refresh=UI_REFRESH,
         radar_enabled=radar_enabled,
         clothing_enabled=is_clothing_enabled()

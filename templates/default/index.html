@@ -858,6 +858,18 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong style="color: #3c4043; font-size: 1.05rem;">Radar Coordinates</strong>
+                                <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Paste latitude and longitude (e.g. <code>35.3859, -94.3985</code>)</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                            <input type="text" id="radar-coords" placeholder="e.g. 35.3859, -94.3985" onchange="saveConfig()" style="flex: 1; padding: 7px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; font-family: monospace;">
+                            <button type="button" onclick="pasteRadarCoords()" style="padding: 7px 12px; background: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">📋 Paste</button>
+                        </div>
+                    </div>
                     <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
                         <span style="font-size: 0.9rem; color: #3c4043; font-weight: 500;">Radar Reset Idle Time (Sec):</span>
                         <input type="number" id="radar-reset" value="10" min="0" onchange="saveConfig()" style="width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; text-align: center;">
@@ -974,6 +986,8 @@
         let bgConfig = { rotate: false, interval: 300, selected: [], available: [], enable_radar: true, radar_loop: true, radar_reset_interval: 10, schedule_reset_interval: 15, panel_opacity: 35 };
         let currentBgIndex = 0;
         let bgRotationInterval = null;
+        let currentRadarLat = {{ radar_lat | default(home_lat) | default(0.0) }};
+        let currentRadarLon = {{ radar_lon | default(home_lon) | default(0.0) }};
 
         function applyPanelOpacity(val) {
             const pct = parseInt(val, 10) || 35;
@@ -991,6 +1005,7 @@
                 if (bgConfig.enable_radar === undefined) bgConfig.enable_radar = true;
                 if (bgConfig.enable_location_resolver === undefined) bgConfig.enable_location_resolver = true;
                 if (bgConfig.enable_clothing === undefined) bgConfig.enable_clothing = true;
+                if (bgConfig.radar_coords === undefined) bgConfig.radar_coords = "{{ radar_lat | default(home_lat) | default('') }}, {{ radar_lon | default(home_lon) | default('') }}".trim();
                 if (bgConfig.radar_loop === undefined) bgConfig.radar_loop = true; 
                 if (bgConfig.radar_reset_interval === undefined) bgConfig.radar_reset_interval = 10;
                 if (bgConfig.schedule_reset_interval === undefined) bgConfig.schedule_reset_interval = 15;
@@ -1001,6 +1016,8 @@
                 document.getElementById('enable-radar-toggle').checked = bgConfig.enable_radar;
                 document.getElementById('enable-location-resolver-toggle').checked = bgConfig.enable_location_resolver;
                 document.getElementById('enable-clothing-toggle').checked = bgConfig.enable_clothing;
+                const coordsInput = document.getElementById('radar-coords');
+                if (coordsInput) coordsInput.value = bgConfig.radar_coords || "";
                 document.getElementById('radar-toggle').checked = bgConfig.radar_loop;
                 document.getElementById('radar-reset').value = bgConfig.radar_reset_interval;
                 document.getElementById('schedule-reset').value = bgConfig.schedule_reset_interval;
@@ -1013,6 +1030,7 @@
                 applyBackground();
                 toggleRadarView(backendShowRadar && bgConfig.enable_radar);
                 toggleClothingView(bgConfig.enable_clothing);
+                updateRadarCoordsFromConfig();
             } catch (e) { console.error("Failed to load config", e); }
         }
 
@@ -1022,6 +1040,8 @@
             bgConfig.enable_radar = document.getElementById('enable-radar-toggle').checked;
             bgConfig.enable_location_resolver = document.getElementById('enable-location-resolver-toggle').checked;
             bgConfig.enable_clothing = document.getElementById('enable-clothing-toggle').checked;
+            const coordsInput = document.getElementById('radar-coords');
+            if (coordsInput) bgConfig.radar_coords = coordsInput.value.trim();
             bgConfig.radar_loop = document.getElementById('radar-toggle').checked;
             const radarResetVal = parseInt(document.getElementById('radar-reset').value, 10);
             bgConfig.radar_reset_interval = isNaN(radarResetVal) ? 10 : radarResetVal;
@@ -1040,6 +1060,7 @@
                         enable_radar: bgConfig.enable_radar,
                         enable_location_resolver: bgConfig.enable_location_resolver,
                         enable_clothing: bgConfig.enable_clothing,
+                        radar_coords: bgConfig.radar_coords,
                         radar_loop: bgConfig.radar_loop,
                         radar_reset_interval: bgConfig.radar_reset_interval,
                         schedule_reset_interval: bgConfig.schedule_reset_interval,
@@ -1049,7 +1070,42 @@
                 applyBackground();
                 toggleRadarView(backendShowRadar && bgConfig.enable_radar);
                 toggleClothingView(bgConfig.enable_clothing);
+                updateRadarCoordsFromConfig();
             } catch (e) { console.error("Failed to save config", e); }
+        }
+
+        async function pasteRadarCoords() {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                    const coordsInput = document.getElementById('radar-coords');
+                    if (coordsInput) coordsInput.value = text.trim();
+                    saveConfig();
+                }
+            } catch (err) {
+                const manual = prompt("Paste your radar coordinates here (e.g. 35.3859, -94.3985):");
+                if (manual !== null && manual.trim() !== '') {
+                    const coordsInput = document.getElementById('radar-coords');
+                    if (coordsInput) coordsInput.value = manual.trim();
+                    saveConfig();
+                }
+            }
+        }
+
+        function updateRadarCoordsFromConfig() {
+            if (!bgConfig || !bgConfig.radar_coords) return;
+            const parts = bgConfig.radar_coords.replace(',', ' ').split(/\s+/).filter(Boolean);
+            if (parts.length >= 2) {
+                const lat = parseFloat(parts[0]);
+                const lon = parseFloat(parts[1]);
+                if (!isNaN(lat) && !isNaN(lon)) {
+                    currentRadarLat = lat;
+                    currentRadarLon = lon;
+                    if (map && mapInitialized) {
+                        map.panTo([currentRadarLat, currentRadarLon]);
+                    }
+                }
+            }
         }
 
         function toggleClothingView(show) {
@@ -1643,12 +1699,10 @@
             if (mapInitialized) return;
             mapInitialized = true;
 
-            const homeLat = {{ home_lat | default(0.0) }};
-            const homeLon = {{ home_lon | default(0.0) }};
             const defaultZoom = 9;
             
             map = L.map('radar-container', {
-                center: [homeLat, homeLon],
+                center: [currentRadarLat, currentRadarLon],
                 zoom: defaultZoom,
                 zoomControl: false,       // We will manually add this to position it
                 dragging: true,           
@@ -1658,8 +1712,6 @@
 
             // Add tiny +/- zoom controls to the top right
             L.control.zoom({ position: 'topright' }).addTo(map);
-
-            // Toggle fullscreen when tapping the map
 
             // Toggle fullscreen when tapping the map
             map.on('click', function() {
@@ -1681,8 +1733,8 @@
                 }
                 const delayMs = delaySec * 1000;
                 resetTimer = setTimeout(() => {
-                    // setView smoothly returns to both the original coordinates and zoom level
-                    map.setView([homeLat, homeLon], defaultZoom, { animate: true });
+                    // setView smoothly returns to both the configured coordinates and zoom level
+                    map.setView([currentRadarLat, currentRadarLon], defaultZoom, { animate: true });
                 }, delayMs);
             }
 
