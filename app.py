@@ -528,11 +528,49 @@ def save_menu(menu_data, merge=True):
 def get_lunch_menu():
     try:
         menu_data = load_menu()
-        today_str = datetime.datetime.now(ZoneInfo(TIMEZONE)).strftime('%Y-%m-%d')
-        return menu_data.get(today_str, None)
+        now_dt = datetime.datetime.now(ZoneInfo(TIMEZONE))
+        today_str = now_dt.strftime('%Y-%m-%d')
+        today_weekday = now_dt.weekday()
+
+        if today_weekday == 4:  # Friday -> Next school day is Monday (+3 days)
+            next_school_dt = now_dt + datetime.timedelta(days=3)
+            next_menu_title = "Monday's Menu"
+            next_button_label = "MONDAY"
+        elif today_weekday == 5:  # Saturday -> Next school day is Monday (+2 days)
+            next_school_dt = now_dt + datetime.timedelta(days=2)
+            next_menu_title = "Monday's Menu"
+            next_button_label = "MONDAY"
+        elif today_weekday == 6:  # Sunday -> Next school day is Monday (+1 day)
+            next_school_dt = now_dt + datetime.timedelta(days=1)
+            next_menu_title = "Monday's Menu"
+            next_button_label = "MONDAY"
+        else:  # Mon-Thu -> Tomorrow (+1 day)
+            next_school_dt = now_dt + datetime.timedelta(days=1)
+            next_menu_title = "Tomorrow's Menu"
+            next_button_label = "TOMORROW"
+
+        next_school_str = next_school_dt.strftime('%Y-%m-%d')
+        next_school_date_display = next_school_dt.strftime('%A, %b %d')
+
+        today_menu = menu_data.get(today_str, None)
+        next_menu = menu_data.get(next_school_str, None)
+
+        return {
+            'today': today_menu,
+            'tomorrow': next_menu,
+            'tomorrow_title': next_menu_title,
+            'tomorrow_button_label': next_button_label,
+            'tomorrow_date_str': next_school_date_display
+        }
     except Exception as e:
         print(f"Menu Error: {e}")
-        return None
+        return {
+            'today': None,
+            'tomorrow': None,
+            'tomorrow_title': "Tomorrow's Menu",
+            'tomorrow_button_label': "TOMORROW",
+            'tomorrow_date_str': ''
+        }
 
 def load_activities():
     if os.path.exists(ACTIVITY_FILE):
@@ -606,11 +644,38 @@ def index():
     # Serve from cache, fallback to direct fetch if cache is still initializing on boot
     events = CACHE['events'] or get_events()
     weather = CACHE['weather'] or get_weather()
-    lunch = CACHE['lunch'] or get_lunch_menu()
+    lunch_data = CACHE['lunch'] or get_lunch_menu()
     activity = CACHE['activity'] or get_school_activity()
     radar_enabled = is_radar_enabled()
     
-    return render_template(f'{THEME}/index.html', events=events, weather=weather, lunch=lunch, activity=activity, home_lat=HOME_LAT, home_lon=HOME_LON, ui_refresh=UI_REFRESH, radar_enabled=radar_enabled)
+    if isinstance(lunch_data, dict) and ('today' in lunch_data or 'tomorrow' in lunch_data):
+        lunch = lunch_data.get('today')
+        tomorrow_lunch = lunch_data.get('tomorrow')
+        tomorrow_title = lunch_data.get('tomorrow_title', "Tomorrow's Menu")
+        tomorrow_button_label = lunch_data.get('tomorrow_button_label', "TOMORROW")
+        tomorrow_date_str = lunch_data.get('tomorrow_date_str', '')
+    else:
+        lunch = lunch_data
+        tomorrow_lunch = None
+        tomorrow_title = "Tomorrow's Menu"
+        tomorrow_button_label = "TOMORROW"
+        tomorrow_date_str = ''
+
+    return render_template(
+        f'{THEME}/index.html',
+        events=events,
+        weather=weather,
+        lunch=lunch,
+        tomorrow_lunch=tomorrow_lunch,
+        tomorrow_title=tomorrow_title,
+        tomorrow_button_label=tomorrow_button_label,
+        tomorrow_date_str=tomorrow_date_str,
+        activity=activity,
+        home_lat=HOME_LAT,
+        home_lon=HOME_LON,
+        ui_refresh=UI_REFRESH,
+        radar_enabled=radar_enabled
+    )
 
 @app.route('/api/bg-settings', methods=['GET', 'POST'])
 def bg_settings():

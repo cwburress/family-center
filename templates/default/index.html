@@ -515,12 +515,15 @@
             <div class="col-left">
                 <div class="panel time-box" id="live-clock">12:00<span>PM</span></div>
                 
-                <div class="panel lunch-box" onclick="document.getElementById('lunch-modal-overlay').style.display = 'flex'">
+                <div class="panel lunch-box">
                     <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 15px;">
-                        <h3 style="margin: 0; color: #4a4a4a;">School Lunch</h3>
-                        <span style="font-size: 0.75rem; color: #1a73e8; font-weight: 700; letter-spacing: 0.5px;">FULL MENU</span>
+                        <h3 style="margin: 0; color: #4a4a4a; cursor: pointer;" onclick="document.getElementById('lunch-modal-overlay').style.display = 'flex'">School Lunch</h3>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <span style="font-size: 0.75rem; color: #1a73e8; font-weight: 700; letter-spacing: 0.5px; cursor: pointer;" onclick="event.stopPropagation(); document.getElementById('lunch-modal-overlay').style.display='flex'">FULL MENU</span>
+                            <span style="font-size: 0.75rem; color: #1a73e8; font-weight: 700; letter-spacing: 0.5px; cursor: pointer;" onclick="event.stopPropagation(); document.getElementById('tomorrow-lunch-modal-overlay').style.display='flex'">{{ tomorrow_button_label or 'TOMORROW' }}</span>
+                        </div>
                     </div>
-                    <div style="flex-grow: 1; overflow-y: auto; font-size: 1.05rem;">
+                    <div style="flex-grow: 1; overflow-y: auto; font-size: 1.05rem; cursor: pointer;" onclick="document.getElementById('lunch-modal-overlay').style.display = 'flex'">
                         <ul style="margin: 0; padding-left: 20px; color: #3c4043; line-height: 1.6;">
                             {% if lunch and lunch.entrees %}
                                 {% for item in lunch.entrees %}
@@ -722,6 +725,42 @@
                     {% endfor %}
                 {% else %}
                     <li style="color: #70757a; font-style: italic;">None</li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+
+    <div id="tomorrow-lunch-modal-overlay" class="modal-overlay" onclick="this.style.display='none'">
+        <div class="lunch-modal" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 12px; margin-bottom: 15px;">
+                <div>
+                    <h2 style="margin: 0; color: #3c4043; font-size: 1.4rem;">{{ tomorrow_title or "Tomorrow's Menu" }}</h2>
+                    {% if tomorrow_date_str %}
+                        <div style="font-size: 0.85rem; color: #70757a; font-weight: 500; margin-top: 2px;">{{ tomorrow_date_str }}</div>
+                    {% endif %}
+                </div>
+                <button onclick="document.getElementById('tomorrow-lunch-modal-overlay').style.display='none'" style="background: none; border: none; font-size: 2rem; line-height: 1; color: #9aa0a6; cursor: pointer; padding: 0;">&times;</button>
+            </div>
+            
+            <strong style="color: #1a73e8; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">Entrees</strong>
+            <ul style="margin: 8px 0 20px; padding-left: 20px; color: #3c4043; font-size: 1.1rem; line-height: 1.5;">
+                {% if tomorrow_lunch and tomorrow_lunch.entrees %}
+                    {% for item in tomorrow_lunch.entrees %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                {% else %}
+                    <li style="color: #70757a; font-style: italic;">No menu data available</li>
+                {% endif %}
+            </ul>
+
+            <strong style="color: #1a73e8; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;">Sides</strong>
+            <ul style="margin: 8px 0 0; padding-left: 20px; color: #3c4043; font-size: 1.1rem; line-height: 1.5;">
+                {% if tomorrow_lunch and tomorrow_lunch.sides %}
+                    {% for item in tomorrow_lunch.sides %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                {% else %}
+                    <li style="color: #70757a; font-style: italic;">No menu data available</li>
                 {% endif %}
             </ul>
         </div>
@@ -1467,21 +1506,23 @@
             const radarPanel = document.getElementById('radar-panel');
             const helpModal = document.getElementById('help-modal-overlay');
             const lunchModal = document.getElementById('lunch-modal-overlay');
-            const eventModal = document.getElementById('event-modal-overlay');
-            
-            const isRadarFullscreen = radarPanel.classList.contains('fullscreen-radar');
-            const isHelpOpen = helpModal && helpModal.style.display === 'flex';
             const isLunchOpen = lunchModal && lunchModal.style.display === 'flex';
+            const tomLunchModal = document.getElementById('tomorrow-lunch-modal-overlay');
+            const isTomLunchOpen = tomLunchModal && tomLunchModal.style.display === 'flex';
+            const eventModal = document.getElementById('event-modal-overlay');
             const isEventOpen = eventModal && eventModal.style.display === 'flex';
             const configModal = document.getElementById('config-modal-overlay');
             const isConfigOpen = configModal && configModal.style.display === 'flex';
+
+            const isRadarFullscreen = radarPanel.classList.contains('fullscreen-radar');
+            const isHelpOpen = helpModal && helpModal.style.display === 'flex';
 
             // Block the page reload if the user has scrolled down in the schedule.
             // The 15-second inactivity timer will reset the scroll to 0, allowing the next reload.
             const schedContent = document.querySelector('.schedule-content');
             const isScrollingSchedule = schedContent && schedContent.scrollTop > 0;
 
-            if (!isRadarFullscreen && !isHelpOpen && !isLunchOpen && !isEventOpen && !isConfigOpen && !isScrollingSchedule) {
+            if (!isRadarFullscreen && !isHelpOpen && !isLunchOpen && !isTomLunchOpen && !isEventOpen && !isConfigOpen && !isScrollingSchedule) {
                 // Fetch new data silently without a hard browser reload to preserve background transitions
                 fetch(window.location.href)
                     .then(res => res.text())
@@ -1502,6 +1543,9 @@
                         document.querySelector('.schedule-box').innerHTML = doc.querySelector('.schedule-box').innerHTML;
                         document.querySelector('.forecast-grid').innerHTML = doc.querySelector('.forecast-grid').innerHTML;
                         document.querySelector('#lunch-modal-overlay .lunch-modal').innerHTML = doc.querySelector('#lunch-modal-overlay .lunch-modal').innerHTML;
+                        const tomModal = document.querySelector('#tomorrow-lunch-modal-overlay .lunch-modal');
+                        const newTomModal = doc.querySelector('#tomorrow-lunch-modal-overlay .lunch-modal');
+                        if (tomModal && newTomModal) tomModal.innerHTML = newTomModal.innerHTML;
 
                         // Check if radar status needs to toggle
                         const oldBottom = document.getElementById('bottom-section');
