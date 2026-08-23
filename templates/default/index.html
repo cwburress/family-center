@@ -988,6 +988,7 @@
         let bgRotationInterval = null;
         let currentRadarLat = {{ radar_lat | default(home_lat) | default(0.0) }};
         let currentRadarLon = {{ radar_lon | default(home_lon) | default(0.0) }};
+        let radarTargetMarker = null;
 
         function applyPanelOpacity(val) {
             const pct = parseInt(val, 10) || 35;
@@ -1103,6 +1104,9 @@
                     currentRadarLon = lon;
                     if (map && mapInitialized) {
                         map.panTo([currentRadarLat, currentRadarLon]);
+                    }
+                    if (radarTargetMarker) {
+                        radarTargetMarker.setLatLng([currentRadarLat, currentRadarLon]);
                     }
                 }
             }
@@ -1817,8 +1821,8 @@
             clearTimeout(radarAnimTimer);
             radarAnimTimer = setTimeout(animateRadar, 2000);
 
-            L.circleMarker([homeLat, homeLon], {
-                radius: 4,
+            radarTargetMarker = L.circleMarker([currentRadarLat, currentRadarLon], {
+                radius: 5,
                 fillColor: "#00ffff",
                 color: "#ffffff",
                 weight: 2,
