@@ -227,10 +227,6 @@ def get_events():
 # ==========================================
 def get_clothing_recommendation(morning_temp, afternoon_temp, will_rain, max_uv=0):
     outfit = []
-    
-    # The EPA/WHO recommends sun protection at UV Index 3+, but 5+ is a more practical "Moderate/High" trigger
-    if max_uv >= 5.0:
-        outfit.append("Wear Sunscreen! ☀️")
 
     if afternoon_temp >= 80:
         outfit.append("Shorts & T-Shirt")
