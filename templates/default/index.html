@@ -582,6 +582,9 @@
                     {% if weather and weather.feels_like is not none %}
                         <div style="font-size: 0.95rem; font-weight: 800; color: #000000; margin-top: 6px; letter-spacing: 0.5px;">Feels Like {{ weather.feels_like }}&deg;</div>
                     {% endif %}
+                    {% if weather and weather.humidity is not none %}
+                        <div style="font-size: 0.95rem; font-weight: 800; color: #000000; margin-top: 4px; letter-spacing: 0.5px;">Humidity {{ weather.humidity }}%</div>
+                    {% endif %}
                 </div>
             </div>
             
@@ -688,9 +691,17 @@
                                     <span class="temp-label-low">Low</span>
                                 </div>
                             </div>
-                            <div style="font-weight: bold; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                                <span style="font-size: 1.4rem; filter: drop-shadow(0px 0px 4px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,0.8));">🌧️</span>
-                                <span style="color: #1a73e8;">{{ day.rain_chance }}%</span>
+                            <div style="font-weight: bold; font-size: 1.15rem; display: flex; align-items: center; justify-content: center; gap: 14px;">
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <span style="font-size: 1.3rem; filter: drop-shadow(0px 0px 4px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,0.8));">🌧️</span>
+                                    <span style="color: #1a73e8;">{{ day.rain_chance }}%</span>
+                                </div>
+                                {% if day.humidity is not none %}
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <span style="font-size: 1.2rem; filter: drop-shadow(0px 0px 4px rgba(0,0,0,1)) drop-shadow(0px 0px 4px rgba(0,0,0,0.8));">💧</span>
+                                    <span style="color: #0b57d0;">{{ day.humidity }}%</span>
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
                         {% endfor %}

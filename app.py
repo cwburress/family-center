@@ -404,20 +404,22 @@ def get_weather():
         
         morning_temp, afternoon_temp, will_rain, hourly_display = parse_nws_forecast(hourly_periods)
         
-        # Grab current temp, feels_like, max UV index, and daily heat index (apparent temp max) from Open-Meteo
+        # Grab current temp, feels_like, current humidity, max UV index, daily heat index, and daily humidity from Open-Meteo
         max_uv = 0
         current_temp = None
         feels_like = None
+        current_humidity = None
         heat_index_map = {}
+        humidity_map = {}
         if HOME_LAT != '0.0' and HOME_LON != '0.0':
             try:
-                om_url = f"https://api.open-meteo.com/v1/forecast?latitude={HOME_LAT}&longitude={HOME_LON}&current=temperature_2m,apparent_temperature&daily=uv_index_max,apparent_temperature_max&timezone=auto&forecast_days=7&temperature_unit=fahrenheit"
+                om_url = f"https://api.open-meteo.com/v1/forecast?latitude={HOME_LAT}&longitude={HOME_LON}&current=temperature_2m,apparent_temperature,relative_humidity_2m&daily=uv_index_max,apparent_temperature_max,relative_humidity_2m_mean&timezone=auto&forecast_days=7&temperature_unit=fahrenheit"
                 om_resp = requests.get(om_url, timeout=10)
                 if om_resp.status_code == 200:
                     om_data = om_resp.json()
                     max_uv = om_data.get('daily', {}).get('uv_index_max', [0])[0] or 0
                     
-                    # Grab the current temp and feels_like and round to clean integers
+                    # Grab the current temp, feels_like, and humidity
                     raw_temp = om_data.get('current', {}).get('temperature_2m')
                     if raw_temp is not None:
                         current_temp = round(raw_temp)
@@ -426,15 +428,29 @@ def get_weather():
                     if raw_feels is not None:
                         feels_like = round(raw_feels)
 
-                    # Build daily Heat Index map (YYYY-MM-DD -> rounded temp)
+                    raw_humidity = om_data.get('current', {}).get('relative_humidity_2m')
+                    if raw_humidity is not None:
+                        current_humidity = round(raw_humidity)
+
+                    # Build daily Heat Index and Humidity maps (YYYY-MM-DD -> rounded value)
                     om_daily = om_data.get('daily', {})
                     times = om_daily.get('time', [])
                     apparent_maxes = om_daily.get('apparent_temperature_max', [])
+                    mean_humidities = om_daily.get('relative_humidity_2m_mean', [])
                     for d_str, app_max in zip(times, apparent_maxes):
                         if app_max is not None:
                             heat_index_map[d_str] = round(app_max)
+                    for d_str, mean_hum in zip(times, mean_humidities):
+                        if mean_hum is not None:
+                            humidity_map[d_str] = round(mean_hum)
             except Exception as e:
                 print(f"Open-Meteo API Error: {e}")
+
+        # Fallback for current humidity from NWS hourly if Open-Meteo didn't supply it
+        if current_humidity is None and hourly_periods:
+            first_h_rh = hourly_periods[0].get('relativeHumidity', {})
+            if first_h_rh and first_h_rh.get('value') is not None:
+                current_humidity = round(first_h_rh['value'])
 
         clothing = get_clothing_recommendation(morning_temp, afternoon_temp, will_rain, max_uv)
         
@@ -462,6 +478,7 @@ def get_weather():
             day_name = dt.strftime('%a')
             date_str = dt.strftime('%Y-%m-%d')
             heat_idx = heat_index_map.get(date_str)
+            hum_idx = humidity_map.get(date_str)
 
             if period['isDaytime'] and i + 1 < len(daily_periods_raw):
                 night_period = daily_periods_raw[i+1]
@@ -479,6 +496,7 @@ def get_weather():
                     'high': period['temperature'],
                     'low': night_period['temperature'],
                     'heat_index': heat_idx,
+                    'humidity': hum_idx,
                     'rain_chance': round(raw_chance / 5) * 5,
                     'short_forecast': period['shortForecast']
                 })
@@ -492,6 +510,7 @@ def get_weather():
                     'high': afternoon_temp,
                     'low': period['temperature'],
                     'heat_index': heat_idx,
+                    'humidity': hum_idx,
                     'rain_chance': round(night_pop / 5) * 5,
                     'short_forecast': period['shortForecast']
                 })
@@ -528,6 +547,7 @@ def get_weather():
             "afternoon_temp": afternoon_temp,
             "current_temp": current_temp,
             "feels_like": feels_like,
+            "humidity": current_humidity,
             "will_rain": will_rain,
             "clothing": clothing,
             "hourly": hourly_display,
