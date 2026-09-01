@@ -649,14 +649,52 @@ def save_activities(data):
 def get_school_activity():
     try:
         activity_data = load_activities()
-        today = datetime.datetime.now(ZoneInfo(TIMEZONE))
-        today_name = today.strftime('%A')
-        if today.weekday() in (5, 6):  # Saturday or Sunday
-            return "No School Today!"
-        return activity_data.get(today_name, "No School Today!")
+        now_dt = datetime.datetime.now(ZoneInfo(TIMEZONE))
+        today_name = now_dt.strftime('%A')
+        today_weekday = now_dt.weekday()
+
+        if today_weekday in (5, 6):  # Saturday or Sunday
+            today_activity = "No School Today!"
+        else:
+            today_activity = activity_data.get(today_name, "No School Today!")
+
+        if today_weekday == 4:  # Friday -> Next school day is Monday (+3 days)
+            next_school_dt = now_dt + datetime.timedelta(days=3)
+            next_activity_title = "Monday's Activities"
+            next_button_label = "MONDAY"
+        elif today_weekday == 5:  # Saturday -> Next school day is Monday (+2 days)
+            next_school_dt = now_dt + datetime.timedelta(days=2)
+            next_activity_title = "Monday's Activities"
+            next_button_label = "MONDAY"
+        elif today_weekday == 6:  # Sunday -> Next school day is Monday (+1 day)
+            next_school_dt = now_dt + datetime.timedelta(days=1)
+            next_activity_title = "Monday's Activities"
+            next_button_label = "MONDAY"
+        else:  # Mon-Thu -> Tomorrow (+1 day)
+            next_school_dt = now_dt + datetime.timedelta(days=1)
+            next_activity_title = "Tomorrow's Activities"
+            next_button_label = "TOMORROW"
+
+        next_day_name = next_school_dt.strftime('%A')
+        next_school_date_display = next_school_dt.strftime('%A, %b %d')
+        next_activity = activity_data.get(next_day_name, "No School Activities")
+
+        return {
+            'today': today_activity,
+            'tomorrow': next_activity,
+            'tomorrow_title': next_activity_title,
+            'tomorrow_button_label': next_button_label,
+            'tomorrow_date_str': next_school_date_display
+        }
     except Exception as e:
         print(f"Activity Error: {e}")
-        return "Unavailable"
+        return {
+            'today': "Unavailable",
+            'tomorrow': None,
+            'tomorrow_title': "Tomorrow's Activities",
+            'tomorrow_button_label': "TOMORROW",
+            'tomorrow_date_str': ''
+        }
 
 # ==========================================
 # BACKGROUND POLLING & CACHING
@@ -704,7 +742,7 @@ def index():
     events = CACHE['events'] or get_events()
     weather = CACHE['weather'] or get_weather()
     lunch_data = CACHE['lunch'] or get_lunch_menu()
-    activity = CACHE['activity'] or get_school_activity()
+    activity_data = CACHE['activity'] or get_school_activity()
     radar_enabled = is_radar_enabled()
     
     if isinstance(lunch_data, dict) and ('today' in lunch_data or 'tomorrow' in lunch_data):
@@ -720,6 +758,19 @@ def index():
         tomorrow_button_label = "TOMORROW"
         tomorrow_date_str = ''
 
+    if isinstance(activity_data, dict) and ('today' in activity_data or 'tomorrow' in activity_data):
+        activity = activity_data.get('today')
+        tomorrow_activity = activity_data.get('tomorrow')
+        tomorrow_activity_title = activity_data.get('tomorrow_title', "Tomorrow's Activities")
+        tomorrow_activity_button_label = activity_data.get('tomorrow_button_label', "TOMORROW")
+        tomorrow_activity_date_str = activity_data.get('tomorrow_date_str', '')
+    else:
+        activity = activity_data
+        tomorrow_activity = None
+        tomorrow_activity_title = "Tomorrow's Activities"
+        tomorrow_activity_button_label = "TOMORROW"
+        tomorrow_activity_date_str = ''
+
     radar_lat, radar_lon = get_radar_coordinates()
 
     return render_template(
@@ -732,6 +783,10 @@ def index():
         tomorrow_button_label=tomorrow_button_label,
         tomorrow_date_str=tomorrow_date_str,
         activity=activity,
+        tomorrow_activity=tomorrow_activity,
+        tomorrow_activity_title=tomorrow_activity_title,
+        tomorrow_activity_button_label=tomorrow_activity_button_label,
+        tomorrow_activity_date_str=tomorrow_activity_date_str,
         home_lat=HOME_LAT,
         home_lon=HOME_LON,
         radar_lat=radar_lat,

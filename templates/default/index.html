@@ -541,7 +541,10 @@
                 </div>
                 
                 <div class="panel activity-box">
-                    <h3 style="margin-bottom: 5px; color: #000000; font-weight: 700;">School Activity</h3>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
+                        <h3 style="margin: 0; color: #000000; font-weight: 700;">School Activity</h3>
+                        <span style="font-size: 0.75rem; color: #1a73e8; font-weight: 700; letter-spacing: 0.5px; cursor: pointer;" onclick="event.stopPropagation(); document.getElementById('tomorrow-activity-modal-overlay').style.display='flex'">{{ tomorrow_activity_button_label or 'TOMORROW' }}</span>
+                    </div>
                     <div style="font-size: 1.05rem; color: #000000; line-height: 1.4;">
                         {% if activity is string %}
                             <span style="color: #000000; font-weight: 700; {% if activity == 'No School Today!' %}font-style: italic;{% endif %}">{{ activity }}</span>
@@ -778,6 +781,32 @@
                     <li style="color: #444444; font-style: italic;">No menu data available</li>
                 {% endif %}
             </ul>
+        </div>
+    </div>
+
+    <div id="tomorrow-activity-modal-overlay" class="modal-overlay" onclick="this.style.display='none'">
+        <div class="lunch-modal" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e0e0e0; padding-bottom: 12px; margin-bottom: 15px;">
+                <div>
+                    <h2 style="margin: 0; color: #000000; font-size: 1.6rem; font-weight: 800;">{{ tomorrow_activity_title or "Tomorrow's Activities" }}</h2>
+                    {% if tomorrow_activity_date_str %}
+                        <div style="font-size: 0.95rem; color: #000000; font-weight: 700; margin-top: 2px;">{{ tomorrow_activity_date_str }}</div>
+                    {% endif %}
+                </div>
+                <button onclick="document.getElementById('tomorrow-activity-modal-overlay').style.display='none'" style="background: none; border: none; font-size: 2.2rem; line-height: 1; color: #000000; cursor: pointer; padding: 0; font-weight: bold;">&times;</button>
+            </div>
+            
+            <div style="font-size: 1.15rem; color: #000000; line-height: 1.6;">
+                {% if tomorrow_activity is string %}
+                    <span style="color: #000000; font-weight: 700; {% if tomorrow_activity in ['No School Today!', 'No School Activities', 'No School Tomorrow!'] %}font-style: italic;{% endif %}">{{ tomorrow_activity }}</span>
+                {% elif tomorrow_activity %}
+                    {% for child, act in tomorrow_activity.items() %}
+                        <div style="margin-bottom: 8px; color: #000000;"><strong>{{ child }}:</strong> <span style="color: #000000; font-weight: 600;">{{ act }}</span></div>
+                    {% endfor %}
+                {% else %}
+                    <span style="color: #444444; font-style: italic; font-weight: 600;">No School Activities</span>
+                {% endif %}
+            </div>
         </div>
     </div>
 
@@ -1607,6 +1636,8 @@
             const isLunchOpen = lunchModal && lunchModal.style.display === 'flex';
             const tomLunchModal = document.getElementById('tomorrow-lunch-modal-overlay');
             const isTomLunchOpen = tomLunchModal && tomLunchModal.style.display === 'flex';
+            const tomActivityModal = document.getElementById('tomorrow-activity-modal-overlay');
+            const isTomActivityOpen = tomActivityModal && tomActivityModal.style.display === 'flex';
             const eventModal = document.getElementById('event-modal-overlay');
             const isEventOpen = eventModal && eventModal.style.display === 'flex';
             const configModal = document.getElementById('config-modal-overlay');
@@ -1620,7 +1651,7 @@
             const schedContent = document.querySelector('.schedule-content');
             const isScrollingSchedule = schedContent && schedContent.scrollTop > 0;
 
-            if (!isRadarFullscreen && !isHelpOpen && !isLunchOpen && !isTomLunchOpen && !isEventOpen && !isConfigOpen && !isScrollingSchedule) {
+            if (!isRadarFullscreen && !isHelpOpen && !isLunchOpen && !isTomLunchOpen && !isTomActivityOpen && !isEventOpen && !isConfigOpen && !isScrollingSchedule) {
                 // Fetch new data silently without a hard browser reload to preserve background transitions
                 fetch(window.location.href)
                     .then(res => res.text())
@@ -1644,6 +1675,9 @@
                         const tomModal = document.querySelector('#tomorrow-lunch-modal-overlay .lunch-modal');
                         const newTomModal = doc.querySelector('#tomorrow-lunch-modal-overlay .lunch-modal');
                         if (tomModal && newTomModal) tomModal.innerHTML = newTomModal.innerHTML;
+                        const tomActModal = document.querySelector('#tomorrow-activity-modal-overlay .lunch-modal');
+                        const newTomActModal = doc.querySelector('#tomorrow-activity-modal-overlay .lunch-modal');
+                        if (tomActModal && newTomActModal) tomActModal.innerHTML = newTomActModal.innerHTML;
 
                         // Check if radar status needs to toggle
                         const oldBottom = document.getElementById('bottom-section');
