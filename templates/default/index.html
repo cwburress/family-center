@@ -507,6 +507,19 @@
             color: #000000;
             margin: 0 2px;
         }
+        .entree-item-clickable {
+            cursor: pointer;
+            transition: color 0.15s ease, opacity 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .entree-item-clickable:hover {
+            color: #1a73e8 !important;
+        }
+        .entree-item-clickable:active {
+            opacity: 0.7;
+        }
     </style>
 </head>
 <body>
@@ -531,7 +544,9 @@
                         <ul style="margin: 0; padding-left: 20px; color: #000000; font-weight: 600; line-height: 1.6;">
                             {% if lunch and lunch.entrees %}
                                 {% for item in lunch.entrees %}
-                                    <li style="color: #000000;">{{ item }}</li>
+                                    <li style="color: #000000; margin-bottom: 3px;">
+                                        <span class="entree-item-clickable" onclick="event.stopPropagation(); openEntreePhotoModal('{{ item | replace("'", "\\'") }}')">{{ item }} <span style="font-size: 0.8rem; opacity: 0.65;">📷</span></span>
+                                    </li>
                                 {% endfor %}
                             {% else %}
                                 <li style="color: #000000; font-style: italic;">No menu data for today</li>
@@ -728,7 +743,9 @@
             <ul style="margin: 8px 0 20px; padding-left: 22px; color: #000000; font-size: 1.15rem; font-weight: 600; line-height: 1.6;">
                 {% if lunch and lunch.entrees %}
                     {% for item in lunch.entrees %}
-                        <li style="color: #000000; margin-bottom: 4px;">{{ item }}</li>
+                        <li style="color: #000000; margin-bottom: 6px;">
+                            <span class="entree-item-clickable" onclick="event.stopPropagation(); openEntreePhotoModal('{{ item | replace("'", "\\'") }}')">{{ item }} <span style="font-size: 0.85rem; color: #0b57d0; margin-left: 4px;">📷</span></span>
+                        </li>
                     {% endfor %}
                 {% else %}
                     <li style="color: #444444; font-style: italic;">None</li>
@@ -764,7 +781,9 @@
             <ul style="margin: 8px 0 20px; padding-left: 22px; color: #000000; font-size: 1.15rem; font-weight: 600; line-height: 1.6;">
                 {% if tomorrow_lunch and tomorrow_lunch.entrees %}
                     {% for item in tomorrow_lunch.entrees %}
-                        <li style="color: #000000; margin-bottom: 4px;">{{ item }}</li>
+                        <li style="color: #000000; margin-bottom: 6px;">
+                            <span class="entree-item-clickable" onclick="event.stopPropagation(); openEntreePhotoModal('{{ item | replace("'", "\\'") }}')">{{ item }} <span style="font-size: 0.85rem; color: #0b57d0; margin-left: 4px;">📷</span></span>
+                        </li>
                     {% endfor %}
                 {% else %}
                     <li style="color: #444444; font-style: italic;">No menu data available</li>
@@ -806,6 +825,27 @@
                 {% else %}
                     <span style="color: #444444; font-style: italic; font-weight: 600;">No School Activities</span>
                 {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div id="entree-photo-modal-overlay" class="modal-overlay" onclick="closeEntreePhotoModal()" style="display: none; z-index: 25000;">
+        <div class="lunch-modal" onclick="event.stopPropagation()" style="max-width: 550px; width: 92%; padding: 24px; border-radius: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.35);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e0e0e0; padding-bottom: 14px; margin-bottom: 16px;">
+                <div>
+                    <span style="font-size: 0.8rem; font-weight: 800; color: #0b57d0; text-transform: uppercase; letter-spacing: 1px;">School Lunch Entree</span>
+                    <h2 id="epm-title" style="margin: 2px 0 0 0; color: #000000; font-size: 1.6rem; font-weight: 800; line-height: 1.25;">Entree Name</h2>
+                </div>
+                <button onclick="closeEntreePhotoModal()" style="background: none; border: none; font-size: 2.4rem; line-height: 1; color: #000000; cursor: pointer; padding: 0 0 0 10px; font-weight: bold;">&times;</button>
+            </div>
+            
+            <div id="epm-img-container" style="width: 100%; height: 340px; border-radius: 14px; overflow: hidden; background: #f1f3f4; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06); position: relative;">
+                <img id="epm-image" src="" alt="Entree Photo" style="width: 100%; height: 100%; object-fit: cover; display: none;" onload="this.style.display='block'; document.getElementById('epm-placeholder').style.display='none';" onerror="this.style.display='none'; document.getElementById('epm-placeholder').style.display='flex';">
+                <div id="epm-placeholder" style="display: flex; flex-direction: column; align-items: center; gap: 8px; color: #70757a; padding: 20px;">
+                    <span style="font-size: 3.5rem;">🍽️</span>
+                    <span style="font-size: 1.1rem; font-weight: 700; color: #3c4043;">No photo available</span>
+                    <span style="font-size: 0.85rem; color: #70757a;">You can upload one in Dashboard Settings</span>
+                </div>
             </div>
         </div>
     </div>
@@ -857,6 +897,7 @@
                 <button type="button" class="config-tab-btn" id="tab-btn-backgrounds" onclick="switchConfigTab('backgrounds')">🖼️ Backgrounds</button>
                 <button type="button" class="config-tab-btn" id="tab-btn-activities" onclick="switchConfigTab('activities')">🎒 School Activities</button>
                 <button type="button" class="config-tab-btn" id="tab-btn-menu" onclick="switchConfigTab('menu')">🍽️ Lunch Menu</button>
+                <button type="button" class="config-tab-btn" id="tab-btn-entrees" onclick="switchConfigTab('entrees'); loadEntreePhotos();">📷 Entree Photos</button>
             </div>
             
             <!-- Tab 1: Display & Radar -->
@@ -1019,6 +1060,18 @@
                     <div id="menu-preview-list" style="display: flex; flex-direction: column; gap: 8px;">
                         <div style="text-align: center; padding: 20px; color: #70757a; font-size: 0.9rem;">Loading menu data...</div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Tab 5: Entree Photos -->
+            <div id="config-tab-entrees" class="config-tab-pane config-scrollable">
+                <div style="margin-bottom: 14px; padding: 0 2px;">
+                    <strong style="color: #3c4043; font-size: 1.05rem;">Entree Photo Gallery</strong>
+                    <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Upload custom photos or view the pictures displayed when tapping entrees in the school lunch menus.</div>
+                </div>
+
+                <div id="entrees-gallery-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px;">
+                    <div style="text-align: center; padding: 20px; color: #70757a; font-size: 0.9rem; grid-column: 1 / -1;">Loading entree gallery...</div>
                 </div>
             </div>
         </div>
@@ -1380,14 +1433,17 @@
                     const row = document.createElement('div');
                     row.style.cssText = "background: rgba(255,255,255,0.75); border: 1px solid rgba(0,0,0,0.08); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;";
                     
-                    const entreesStr = item.entrees && item.entrees.length > 0 ? item.entrees.join(', ') : '<em style="color: #999;">None</em>';
+                    let entreesHtml = '<em style="color: #999;">None</em>';
+                    if (item.entrees && item.entrees.length > 0) {
+                        entreesHtml = item.entrees.map(e => `<span class="entree-item-clickable" style="color: #1a73e8; cursor: pointer; text-decoration: underline; margin-right: 8px;" onclick="openEntreePhotoModal('${e.replace(/'/g, "\\'")}')">${e} 📷</span>`).join('');
+                    }
                     const sidesStr = item.sides && item.sides.length > 0 ? item.sides.join(', ') : '';
 
                     row.innerHTML = `
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <strong style="color: #1a73e8; font-size: 0.95rem;">📅 ${item.date}</strong>
                         </div>
-                        <div style="font-size: 0.9rem; color: #202124;"><strong>Entrees:</strong> ${entreesStr}</div>
+                        <div style="font-size: 0.9rem; color: #202124;"><strong>Entrees:</strong> ${entreesHtml}</div>
                         ${sidesStr ? `<div style="font-size: 0.85rem; color: #5f6368;"><strong>Sides:</strong> ${sidesStr}</div>` : ''}
                     `;
                     listEl.appendChild(row);
@@ -1441,10 +1497,114 @@
             setTimeout(() => { if (statusLabel) statusLabel.innerText = ""; }, 5000);
         }
 
+        let entreeImagesMap = {{ entree_images | default({}) | tojson | safe }};
+
+        function openEntreePhotoModal(entreeName) {
+            if (!entreeName) return;
+            const modal = document.getElementById('entree-photo-modal-overlay');
+            const titleEl = document.getElementById('epm-title');
+            const imgEl = document.getElementById('epm-image');
+            const placeholderEl = document.getElementById('epm-placeholder');
+            
+            titleEl.innerText = entreeName;
+            const imgSrc = entreeImagesMap[entreeName] || entreeImagesMap[entreeName.trim()] || '';
+            
+            if (imgSrc) {
+                imgEl.src = imgSrc;
+                imgEl.style.display = 'block';
+                placeholderEl.style.display = 'none';
+            } else {
+                imgEl.style.display = 'none';
+                imgEl.src = '';
+                placeholderEl.style.display = 'flex';
+            }
+            modal.style.display = 'flex';
+        }
+
+        function closeEntreePhotoModal() {
+            const modal = document.getElementById('entree-photo-modal-overlay');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function loadEntreePhotos() {
+            const container = document.getElementById('entrees-gallery-container');
+            if (!container) return;
+            try {
+                const res = await fetch('/api/entree-images?t=' + Date.now(), { cache: 'no-store' });
+                const data = await res.json();
+                entreeImagesMap = data.images || {};
+                const entrees = data.entrees || [];
+                
+                if (entrees.length === 0) {
+                    container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #70757a; padding: 20px;">No entrees found in current menu.</div>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                entrees.forEach(name => {
+                    const card = document.createElement('div');
+                    card.style.cssText = "background: rgba(255,255,255,0.85); border: 1px solid rgba(0,0,0,0.1); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 2px 6px rgba(0,0,0,0.04);";
+                    
+                    const imgSrc = entreeImagesMap[name] || '';
+                    const imgHtml = imgSrc 
+                        ? `<img src="${imgSrc}" style="width: 100%; height: 140px; object-fit: cover;" onerror="this.parentElement.innerHTML='<div style=\\'height:140px;display:flex;align-items:center;justify-content:center;background:#f1f3f4;color:#70757a;\\'>🍽️ No Image</div>'">`
+                        : `<div style="height: 140px; display: flex; align-items: center; justify-content: center; background: #f1f3f4; color: #70757a; font-size: 0.9rem;">🍽️ No Image</div>`;
+                    
+                    const safeAttr = name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    card.innerHTML = `
+                        <div style="width: 100%; height: 140px; background: #e8eaed; position: relative;">
+                            ${imgHtml}
+                        </div>
+                        <div style="padding: 10px; display: flex; flex-direction: column; justify-content: space-between; flex-grow: 1; gap: 8px;">
+                            <strong style="font-size: 0.95rem; color: #202124; line-height: 1.3;">${name}</strong>
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                <label style="background: #1a73e8; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; text-align: center; flex: 1;">
+                                    📷 ${imgSrc ? 'Change Photo' : 'Upload Photo'}
+                                    <input type="file" accept="image/*" style="display: none;" onchange="uploadEntreePhoto(this, '${safeAttr}')">
+                                </label>
+                                ${imgSrc ? `<button type="button" onclick="openEntreePhotoModal('${safeAttr}')" style="background: rgba(0,0,0,0.06); border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #3c4043;">Preview</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (e) {
+                console.error("Failed to load entree gallery", e);
+                container.innerHTML = '<div style="grid-column: 1/-1; color: #ea4335; text-align: center; padding: 20px;">Failed to load entree photos.</div>';
+            }
+        }
+
+        async function uploadEntreePhoto(input, entreeName) {
+            if (!input.files || input.files.length === 0) return;
+            const file = input.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('entree_name', entreeName);
+
+            try {
+                const res = await fetch('/api/upload-entree-photo', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    entreeImagesMap[entreeName] = data.url;
+                    loadEntreePhotos();
+                } else {
+                    alert(data.error || "Failed to upload entree photo.");
+                }
+            } catch (e) {
+                console.error("Error uploading entree photo", e);
+                alert("Upload failed. Please check network connection.");
+            }
+            input.value = "";
+        }
+
         function openConfig() {
             loadConfig(); 
             loadActivities();
             loadMenuOverview();
+            loadEntreePhotos();
             document.getElementById('config-modal-overlay').style.display = 'flex';
         }
 
@@ -1638,6 +1798,8 @@
             const isTomLunchOpen = tomLunchModal && tomLunchModal.style.display === 'flex';
             const tomActivityModal = document.getElementById('tomorrow-activity-modal-overlay');
             const isTomActivityOpen = tomActivityModal && tomActivityModal.style.display === 'flex';
+            const entreePhotoModal = document.getElementById('entree-photo-modal-overlay');
+            const isEntreePhotoOpen = entreePhotoModal && entreePhotoModal.style.display === 'flex';
             const eventModal = document.getElementById('event-modal-overlay');
             const isEventOpen = eventModal && eventModal.style.display === 'flex';
             const configModal = document.getElementById('config-modal-overlay');
@@ -1651,7 +1813,7 @@
             const schedContent = document.querySelector('.schedule-content');
             const isScrollingSchedule = schedContent && schedContent.scrollTop > 0;
 
-            if (!isRadarFullscreen && !isHelpOpen && !isLunchOpen && !isTomLunchOpen && !isTomActivityOpen && !isEventOpen && !isConfigOpen && !isScrollingSchedule) {
+            if (!isRadarFullscreen && !isHelpOpen && !isLunchOpen && !isTomLunchOpen && !isTomActivityOpen && !isEntreePhotoOpen && !isEventOpen && !isConfigOpen && !isScrollingSchedule) {
                 // Fetch new data silently without a hard browser reload to preserve background transitions
                 fetch(window.location.href)
                     .then(res => res.text())

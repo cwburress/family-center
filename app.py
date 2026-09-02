@@ -25,6 +25,26 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 SETTINGS_FILE = os.path.join(BASE_DIR, 'bg_settings.json')
 ACTIVITY_FILE = os.path.join(BASE_DIR, 'activity.json')
 MENU_FILE = os.path.join(BASE_DIR, 'menu.json')
+ENTREE_IMG_FILE = os.path.join(BASE_DIR, 'entree_images.json')
+ENTREE_IMG_FOLDER = os.path.join(BASE_DIR, 'static', 'entrees')
+os.makedirs(ENTREE_IMG_FOLDER, exist_ok=True)
+
+def slugify_entree(name):
+    return re.sub(r'[^a-z0-9]+', '-', str(name).lower()).strip('-')
+
+def load_entree_images():
+    mapping = {}
+    if os.path.exists(ENTREE_IMG_FILE):
+        try:
+            with open(ENTREE_IMG_FILE, 'r') as f:
+                mapping = json.load(f)
+        except Exception as e:
+            print(f"Error loading entree images: {e}")
+    return mapping
+
+def save_entree_images(mapping):
+    with open(ENTREE_IMG_FILE, 'w') as f:
+        json.dump(mapping, f, indent=2)
 
 def load_bg_settings():
     if os.path.exists(SETTINGS_FILE):
@@ -793,7 +813,8 @@ def index():
         radar_lon=radar_lon,
         ui_refresh=UI_REFRESH,
         radar_enabled=radar_enabled,
-        clothing_enabled=is_clothing_enabled()
+        clothing_enabled=is_clothing_enabled(),
+        entree_images=load_entree_images()
     )
 
 @app.route('/api/bg-settings', methods=['GET', 'POST'])
@@ -934,6 +955,47 @@ def api_upload_menu():
         })
     except json.JSONDecodeError as jde:
         return jsonify({"error": f"Invalid JSON syntax: {jde.msg}"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/entree-images', methods=['GET'])
+def api_get_entree_images():
+    menu_data = load_menu()
+    all_entrees = sorted(list(set(e for day in menu_data.values() for e in day.get('entrees', []) if e)))
+    mapping = load_entree_images()
+    return jsonify({
+        "images": mapping,
+        "entrees": all_entrees
+    })
+
+@app.route('/api/upload-entree-photo', methods=['POST'])
+def api_upload_entree_photo():
+    try:
+        if 'file' not in request.files:
+            return jsonify({"error": "No file uploaded"}), 400
+        file = request.files['file']
+        entree_name = request.form.get('entree_name', '').strip()
+        if not entree_name:
+            return jsonify({"error": "No entree name provided"}), 400
+        if file.filename == '':
+            return jsonify({"error": "No selected file"}), 400
+
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else 'jpg'
+        if ext not in ('jpg', 'jpeg', 'png', 'webp', 'gif'):
+            ext = 'jpg'
+        filename = f"{slugify_entree(entree_name)}.{ext}"
+        filepath = os.path.join(ENTREE_IMG_FOLDER, filename)
+        file.save(filepath)
+
+        mapping = load_entree_images()
+        mapping[entree_name] = f"/static/entrees/{filename}"
+        save_entree_images(mapping)
+
+        return jsonify({
+            "status": "success",
+            "entree_name": entree_name,
+            "url": f"/static/entrees/{filename}"
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
