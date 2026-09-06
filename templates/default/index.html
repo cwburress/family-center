@@ -943,6 +943,17 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                        <div>
+                            <strong style="color: #3c4043; font-size: 1.05rem;">Radar Clutter & Color Filter</strong>
+                            <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">Filter false clear-air clutter or shift colors</div>
+                        </div>
+                        <select id="radar-filter-select" onchange="saveConfig()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; background: #fff; color: #3c4043; font-weight: 500; cursor: pointer;">
+                            <option value="clean">Clean (Remove Clutter &lt; 21 dBZ)</option>
+                            <option value="shift">Shift Spectrum (Next Return = Light Green)</option>
+                            <option value="raw">Raw NEXRAD (Unfiltered)</option>
+                        </select>
+                    </div>
                     <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
@@ -1080,7 +1091,7 @@
     <div id="blackout-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; z-index: 20000; cursor: pointer;" onclick="snoozeBlackout()"></div>
 
     <script>
-        let bgConfig = { rotate: false, interval: 300, selected: [], available: [], enable_radar: true, radar_loop: true, radar_reset_interval: 10, schedule_reset_interval: 15, panel_opacity: 35 };
+        let bgConfig = { rotate: false, interval: 300, selected: [], available: [], enable_radar: true, radar_loop: true, radar_filter_mode: 'clean', radar_reset_interval: 10, schedule_reset_interval: 15, panel_opacity: 35 };
         let currentBgIndex = 0;
         let bgRotationInterval = null;
         let currentRadarLat = {{ radar_lat | default(home_lat) | default(0.0) }};
@@ -1105,6 +1116,7 @@
                 if (bgConfig.enable_clothing === undefined) bgConfig.enable_clothing = true;
                 if (bgConfig.radar_coords === undefined) bgConfig.radar_coords = "{{ radar_lat | default(home_lat) | default('') }}, {{ radar_lon | default(home_lon) | default('') }}".trim();
                 if (bgConfig.radar_loop === undefined) bgConfig.radar_loop = true; 
+                if (bgConfig.radar_filter_mode === undefined) bgConfig.radar_filter_mode = 'clean';
                 if (bgConfig.radar_reset_interval === undefined) bgConfig.radar_reset_interval = 10;
                 if (bgConfig.schedule_reset_interval === undefined) bgConfig.schedule_reset_interval = 15;
                 if (bgConfig.panel_opacity === undefined) bgConfig.panel_opacity = 35;
@@ -1117,6 +1129,8 @@
                 const coordsInput = document.getElementById('radar-coords');
                 if (coordsInput) coordsInput.value = bgConfig.radar_coords || "";
                 document.getElementById('radar-toggle').checked = bgConfig.radar_loop;
+                const filterSelect = document.getElementById('radar-filter-select');
+                if (filterSelect) filterSelect.value = bgConfig.radar_filter_mode;
                 document.getElementById('radar-reset').value = bgConfig.radar_reset_interval;
                 document.getElementById('schedule-reset').value = bgConfig.schedule_reset_interval;
                 
@@ -1141,6 +1155,10 @@
             const coordsInput = document.getElementById('radar-coords');
             if (coordsInput) bgConfig.radar_coords = coordsInput.value.trim();
             bgConfig.radar_loop = document.getElementById('radar-toggle').checked;
+            const filterSelect = document.getElementById('radar-filter-select');
+            const newFilterMode = filterSelect ? filterSelect.value : 'clean';
+            const filterModeChanged = (bgConfig.radar_filter_mode !== newFilterMode);
+            bgConfig.radar_filter_mode = newFilterMode;
             const radarResetVal = parseInt(document.getElementById('radar-reset').value, 10);
             bgConfig.radar_reset_interval = isNaN(radarResetVal) ? 10 : radarResetVal;
             bgConfig.schedule_reset_interval = parseInt(document.getElementById('schedule-reset').value, 10) || 15;
@@ -1160,6 +1178,7 @@
                         enable_clothing: bgConfig.enable_clothing,
                         radar_coords: bgConfig.radar_coords,
                         radar_loop: bgConfig.radar_loop,
+                        radar_filter_mode: bgConfig.radar_filter_mode,
                         radar_reset_interval: bgConfig.radar_reset_interval,
                         schedule_reset_interval: bgConfig.schedule_reset_interval,
                         panel_opacity: bgConfig.panel_opacity
@@ -1169,6 +1188,9 @@
                 toggleRadarView(backendShowRadar && bgConfig.enable_radar);
                 toggleClothingView(bgConfig.enable_clothing);
                 updateRadarCoordsFromConfig();
+                if (filterModeChanged && radarLayers && radarLayers.length > 0) {
+                    radarLayers.forEach(layer => layer.redraw());
+                }
             } catch (e) { console.error("Failed to save config", e); }
         }
 
@@ -1887,6 +1909,69 @@
         let sirenPlayed = false;
         let radarLayers = [];
 
+        const N0Q_DBZ = {8745359:-32.0,8745615:-31.5,8811405:-31.0,8877451:-30.5,8877707:-30.0,8943497:-29.5,9009543:-29.0,9009799:-28.5,9075589:-28.0,9141636:-27.5,9141892:-27.0,9207682:-26.5,9273728:-26.0,9273984:-25.5,9339774:-25.0,9405564:-24.5,9405820:-24.0,9471867:-23.5,9537657:-23.0,9537913:-22.5,9603959:-22.0,9670005:-21.5,9867603:-21.0,9999447:-20.5,10196827:-20.0,10328672:-19.5,10526052:-19.0,10723432:-18.5,10855277:-18.0,11052657:-17.5,11184502:-17.0,11381882:-16.5,11579262:-16.0,11711107:-15.5,12040332:-15.0,12237712:-14.5,12435092:-14.0,12566937:-13.5,12764317:-13.0,12896162:-12.5,13093542:-12.0,13290922:-11.5,13422767:-11.0,13817012:-10.5,13619892:-10.0,13225140:-9.5,13027764:-9.0,12830644:-8.5,12633268:-8.0,12435892:-7.5,12172980:-7.0,11975604:-6.5,11778484:-6.0,11581108:-5.5,11383732:-5.0,11186356:-4.5,10791860:-4.0,10528948:-3.5,10331572:-3.0,10134196:-2.5,9937076:-2.0,9739700:-1.5,9542324:-1.0,9739189:-0.5,9476276:0.0,9213363:0.5,8950450:1.0,8424624:1.5,8161711:2.0,7898798:2.5,7635884:3.0,7372971:3.5,7110058:4.0,6781353:4.5,6518440:5.0,6255527:5.5,5992614:6.0,5729700:6.5,5203874:7.0,4940961:7.5,4678048:8.0,4415135:8.5,4283294:9.0,4415906:9.5,4548774:10.0,4747178:10.5,4880046:11.0,5078450:11.5,5211318:12.0,5344187:12.5,5675459:13.0,5873607:13.5,6006475:14.0,6204879:14.5,6337748:15.0,6470616:15.5,6669020:16.0,6801888:16.5,7000292:17.0,7329512:17.5,6870743:18.0,5887667:18.5,5428898:19.0,4970128:19.5,4445822:20.0,3987053:20.5,3528283:21.0,1168664:21.5,1167639:22.0,1101079:22.5,1099798:23.0,1098774:23.5,1031189:24.0,1029908:24.5,963348:25.0,962323:25.5,961299:26.0,894482:26.5,893458:27.0,892433:27.5,825617:28.0,824592:28.5,823568:29.0,755727:29.5,754702:30.0,688142:30.5,687117:31.0,685837:31.5,619276:32.0,618252:32.5,617227:33.0,550411:33.5,549386:34.0,613897:34.5,3306248:35.0,4619528:35.5,5998599:36.0,7311879:36.5,8690950:37.0,10004486:37.5,11383301:38.0,12696837:38.5,14075652:39.0,15389188:39.5,16769536:40.0,16766976:40.5,16765696:41.0,16764416:41.5,16763136:42.0,16761856:42.5,16760832:43.0,16759552:43.5,16758272:44.0,16756992:44.5,16755712:45.0,16754432:45.5,16753152:46.0,16750848:46.5,16749568:47.0,16748288:47.5,16747008:48.0,16745728:48.5,16744448:49.0,16711680:49.5,16252928:50.0,15794176:50.5,15335424:51.0,14876672:51.5,13959168:52.0,13434880:52.5,12976128:53.0,12517376:53.5,12058624:54.0,11599872:54.5,11141120:55.0,10682368:55.5,10158080:56.0,9699328:56.5,9240576:57.0,8323072:57.5,7864320:58.0,7405568:58.5,16777215:59.0,16774655:59.5,16771839:60.0,16769023:60.5,16766207:61.0,16763391:61.5,16760575:62.0,16757759:62.5,16752127:63.0,16749311:63.5,16741887:64.0,16542717:64.5,16343290:65.0,16144119:65.5,15944692:66.0,15745265:66.5,15546095:67.0,15346668:67.5,15147241:68.0,14748643:68.5,11665663:69.0,11272444:69.5,10748151:70.0,10158324:70.5,9634031:71.0,8913130:71.5,8585448:72.0,7930082:72.5,7471325:73.0,6881499:73.5,388336:74.0,388080:74.5,387824:75.0,384480:75.5,384224:76.0,383968:76.5,380368:77.0,380112:77.5,310720:78.0,310464:78.5,310208:79.0,306864:79.5,306608:80.0,302752:80.5,302496:81.0,302240:81.5,233104:82.0,232848:82.5,232592:83.0,228992:83.5,228736:84.0,225136:84.5,224880:85.0,224624:85.5,155488:86.0,155232:86.5,151376:87.0,151120:87.5,150864:88.0,147264:88.5,147008:89.0,146752:89.5,77872:90.0,77616:90.5,73760:91.0,73504:91.5,73248:92.0,3827637:92.5,3827381:93.0,3827125:93.5,3826869:94.0,3826613:94.5,3826357:95.0};
+
+        function filterRadarPixels(data, mode) {
+            if (mode === 'raw') return;
+            const len = data.length;
+            for (let i = 0; i < len; i += 4) {
+                if (data[i + 3] === 0) continue;
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const key = (r << 16) | (g << 8) | b;
+                const dbz = N0Q_DBZ[key];
+                
+                // Drop missing data (black) or weak returns / clear-air clutter (< 21.5 dBZ)
+                if (key === 0 || (dbz !== undefined && dbz < 21.5)) {
+                    data[i + 3] = 0;
+                } else if (mode === 'shift' && dbz !== undefined && dbz >= 21.5 && dbz <= 26.0) {
+                    // Shift next tier return into the soft light green band
+                    if (dbz <= 22.5) {
+                        data[i] = 67; data[i + 1] = 214; data[i + 2] = 126;
+                    } else if (dbz <= 24.5) {
+                        data[i] = 60; data[i + 1] = 214; data[i + 2] = 109;
+                    } else {
+                        data[i] = 53; data[i + 1] = 214; data[i + 2] = 91;
+                    }
+                }
+            }
+        }
+
+        const FilteredRadarTileLayer = L.TileLayer.WMS.extend({
+            createTile: function(coords, done) {
+                const tile = document.createElement('canvas');
+                tile.width = 256;
+                tile.height = 256;
+                const ctx = tile.getContext('2d', { willReadFrequently: true });
+
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+
+                img.onload = () => {
+                    const mode = (window.bgConfig && window.bgConfig.radar_filter_mode) || 'clean';
+                    ctx.drawImage(img, 0, 0);
+                    if (mode !== 'raw') {
+                        try {
+                            const imgData = ctx.getImageData(0, 0, 256, 256);
+                            filterRadarPixels(imgData.data, mode);
+                            ctx.putImageData(imgData, 0, 0);
+                        } catch (err) {
+                            console.warn('Radar tile filter error:', err);
+                        }
+                    }
+                    done(null, tile);
+                };
+
+                img.onerror = (err) => {
+                    done(err, tile);
+                };
+
+                img.src = this.getTileUrl(coords);
+                return tile;
+            }
+        });
+
         function toggleRadarView(show) {
             const bottomSection = document.getElementById('bottom-section');
             const radarPanel = document.getElementById('radar-panel');
@@ -1979,7 +2064,7 @@
             ];
 
             layerNames.forEach((layerName) => {
-                const layer = L.tileLayer.wms("https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi", {
+                const layer = new FilteredRadarTileLayer("https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi", {
                     layers: layerName,
                     format: 'image/png',
                     transparent: true,

@@ -62,6 +62,8 @@ def load_bg_settings():
                     settings["radar_coords"] = f"{HOME_LAT}, {HOME_LON}" if (HOME_LAT != '0.0' or HOME_LON != '0.0') else ""
                 if "radar_loop" not in settings:
                     settings["radar_loop"] = True
+                if "radar_filter_mode" not in settings:
+                    settings["radar_filter_mode"] = "clean"
                 if "radar_reset_interval" not in settings:
                     settings["radar_reset_interval"] = 10
                 if "schedule_reset_interval" not in settings:
@@ -72,7 +74,7 @@ def load_bg_settings():
         except Exception:
             pass
     default_coords = f"{HOME_LAT}, {HOME_LON}" if (HOME_LAT != '0.0' or HOME_LON != '0.0') else ""
-    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "enable_radar": True, "enable_location_resolver": True, "enable_clothing": True, "radar_coords": default_coords, "radar_loop": True, "radar_reset_interval": 10, "schedule_reset_interval": 15, "panel_opacity": 35}
+    return {"rotate": False, "interval": 300, "selected": ["background.jpg"], "enable_radar": True, "enable_location_resolver": True, "enable_clothing": True, "radar_coords": default_coords, "radar_loop": True, "radar_filter_mode": "clean", "radar_reset_interval": 10, "schedule_reset_interval": 15, "panel_opacity": 35}
 
 def save_bg_settings(new_settings):
     settings = load_bg_settings()
