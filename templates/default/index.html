@@ -898,6 +898,7 @@
                 <button type="button" class="config-tab-btn" id="tab-btn-activities" onclick="switchConfigTab('activities')">🎒 School Activities</button>
                 <button type="button" class="config-tab-btn" id="tab-btn-menu" onclick="switchConfigTab('menu')">🍽️ Lunch Menu</button>
                 <button type="button" class="config-tab-btn" id="tab-btn-entrees" onclick="switchConfigTab('entrees'); loadEntreePhotos();">📷 Entree Photos</button>
+                <button type="button" class="config-tab-btn" id="tab-btn-calendars" onclick="switchConfigTab('calendars'); loadCalendarsConfig();">📅 Calendars</button>
             </div>
             
             <!-- Tab 1: Display & Radar -->
@@ -1083,6 +1084,45 @@
 
                 <div id="entrees-gallery-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px;">
                     <div style="text-align: center; padding: 20px; color: #70757a; font-size: 0.9rem; grid-column: 1 / -1;">Loading entree gallery...</div>
+                </div>
+            </div>
+
+            <!-- Tab 6: Google Calendars Config -->
+            <div id="config-tab-calendars" class="config-tab-pane config-scrollable">
+                <div style="display: flex; flex-direction: column; gap: 12px; background: rgba(0,0,0,0.03); padding: 16px; border-radius: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.06); padding-bottom: 10px;">
+                        <div>
+                            <strong style="color: #3c4043; font-size: 1.05rem;">Synced Google Calendars</strong>
+                            <div style="font-size: 0.85rem; color: #70757a; margin-top: 2px;">
+                                Choose which calendars from your Google account to sync into the dashboard.
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" onclick="triggerBasketballSync()" id="sync-basketball-btn" style="padding: 6px 12px; background: #fff; border: 1px solid #f59e0b; color: #b45309; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Sync Kiki & Claire basketball schedules into Google Family Calendar">
+                                🏀 Sync Basketball
+                            </button>
+                            <button type="button" onclick="loadCalendarsConfig(true)" style="padding: 6px 12px; background: #fff; border: 1px solid #ccc; border-radius: 6px; font-size: 0.85rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                🔄 Refresh List
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Notice banner -->
+                    <div id="calendar-sync-notice" style="display: none; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem; line-height: 1.4;"></div>
+
+                    <!-- Calendars list -->
+                    <div id="calendar-list-container" style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px;">
+                        <div style="text-align: center; padding: 25px; color: #70757a; font-size: 0.9rem;">Loading available calendars from Google...</div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.06);">
+                        <div style="font-size: 0.82rem; color: #70757a;">
+                            <span id="calendar-selected-count" style="font-weight: 600; color: #1a73e8;">0</span> calendars selected
+                        </div>
+                        <button type="button" onclick="saveCalendarSelection()" id="save-calendars-btn" style="padding: 8px 18px; background: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
+                            💾 Save & Sync Calendars
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1971,6 +2011,213 @@
                 return tile;
             }
         });
+
+        // ==========================================
+        // GOOGLE CALENDARS CONFIG LOGIC
+        // ==========================================
+        let availableCalendars = [];
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        async function loadCalendarsConfig(force = false) {
+            const container = document.getElementById('calendar-list-container');
+            const notice = document.getElementById('calendar-sync-notice');
+            const countEl = document.getElementById('calendar-selected-count');
+
+            if (!container) return;
+            if (force) {
+                container.innerHTML = '<div style="text-align: center; padding: 25px; color: #70757a; font-size: 0.9rem;">Connecting to Google Calendar API...</div>';
+            }
+
+            try {
+                const res = await fetch('/api/calendars?t=' + Date.now(), { cache: 'no-store' });
+                const data = await res.json();
+
+                if (data.status === 'needs_reauth') {
+                    notice.style.display = 'block';
+                    notice.style.background = '#fef3c7';
+                    notice.style.border = '1px solid #f59e0b';
+                    notice.style.color = '#92400e';
+                    notice.innerHTML = `<strong>⚠️ Google Authorization Update Needed:</strong><br>${escapeHtml(data.message || 'Permissions need to be updated to list calendars.')}<br><br><span style="font-size: 0.85rem;">Run <code>python get_token.py</code> on your computer to consent to calendar list permissions, then click <strong>🔄 Refresh List</strong>.</span>`;
+                    container.innerHTML = '';
+                    if (countEl) countEl.textContent = '0';
+                    return;
+                }
+
+                if (!res.ok || data.status !== 'success') {
+                    notice.style.display = 'block';
+                    notice.style.background = '#fee2e2';
+                    notice.style.border = '1px solid #ef4444';
+                    notice.style.color = '#991b1b';
+                    notice.innerHTML = `<strong>Error:</strong> ${escapeHtml(data.message || 'Could not load calendars.')}`;
+                    container.innerHTML = '';
+                    return;
+                }
+
+                notice.style.display = 'none';
+                availableCalendars = data.calendars || [];
+
+                if (availableCalendars.length === 0) {
+                    container.innerHTML = '<div style="text-align: center; padding: 25px; color: #70757a;">No calendars found on this Google account.</div>';
+                    if (countEl) countEl.textContent = '0';
+                    return;
+                }
+
+                renderCalendarList();
+            } catch (err) {
+                console.error('Failed to load calendars:', err);
+                if (notice) {
+                    notice.style.display = 'block';
+                    notice.style.background = '#fee2e2';
+                    notice.style.border = '1px solid #ef4444';
+                    notice.style.color = '#991b1b';
+                    notice.innerHTML = `<strong>Connection Error:</strong> Could not connect to calendar API endpoint.`;
+                }
+            }
+        }
+
+        function renderCalendarList() {
+            const container = document.getElementById('calendar-list-container');
+            const countEl = document.getElementById('calendar-selected-count');
+            if (!container) return;
+
+            let selectedCount = 0;
+            let html = '';
+
+            availableCalendars.forEach((cal) => {
+                const isSelected = !!cal.selected;
+                if (isSelected) selectedCount++;
+                const bgCol = cal.backgroundColor || '#1a73e8';
+                const isPrimary = !!cal.primary;
+
+                html += `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fff; border: 1px solid ${isSelected ? '#1a73e8' : 'rgba(0,0,0,0.08)'}; border-radius: 8px; transition: all 0.2s ease;">
+                        <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
+                            <span style="width: 14px; height: 14px; border-radius: 50%; background-color: ${bgCol}; flex-shrink: 0; box-shadow: 0 0 4px rgba(0,0,0,0.15);"></span>
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <strong style="color: #3c4043; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(cal.summary || 'Untitled')}</strong>
+                                    ${isPrimary ? '<span style="font-size: 0.72rem; background: #e8f0fe; color: #1a73e8; padding: 2px 6px; border-radius: 4px; font-weight: 600;">Primary</span>' : ''}
+                                    ${cal.accessRole === 'reader' ? '<span style="font-size: 0.72rem; background: #f1f3f4; color: #5f6368; padding: 2px 6px; border-radius: 4px; font-weight: 500;">Read Only</span>' : ''}
+                                </div>
+                                ${cal.description ? `<div style="font-size: 0.8rem; color: #70757a; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(cal.description)}</div>` : ''}
+                            </div>
+                        </div>
+                        <label class="switch" style="margin-left: 14px; flex-shrink: 0;">
+                            <input type="checkbox" data-cal-id="${escapeHtml(cal.id)}" ${isSelected ? 'checked' : ''} onchange="toggleCalendarSelection('${escapeHtml(cal.id)}', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            if (countEl) countEl.textContent = selectedCount;
+        }
+
+        function toggleCalendarSelection(calId, isChecked) {
+            const cal = availableCalendars.find(c => c.id === calId);
+            if (cal) {
+                cal.selected = isChecked;
+            }
+            const countEl = document.getElementById('calendar-selected-count');
+            if (countEl) {
+                const count = availableCalendars.filter(c => c.selected).length;
+                countEl.textContent = count;
+            }
+        }
+
+        async function triggerBasketballSync() {
+            const btn = document.getElementById('sync-basketball-btn');
+            const notice = document.getElementById('calendar-sync-notice');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '🏀 Syncing...';
+            }
+            if (notice) {
+                notice.style.display = 'block';
+                notice.style.background = '#eff6ff';
+                notice.style.border = '1px solid #3b82f6';
+                notice.style.color = '#1d4ed8';
+                notice.innerHTML = '🏀 Fetching games from AAO League calendars and syncing to Family Calendar...';
+            }
+            try {
+                const res = await fetch('/api/sync-basketball', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok && data.status === 'success') {
+                    const sm = data.summary || {};
+                    notice.style.background = '#dcfce7';
+                    notice.style.border = '1px solid #22c55e';
+                    notice.style.color = '#15803d';
+                    notice.innerHTML = `✅ Basketball Sync Complete!<br>Added: <b>${sm.created || 0}</b> | Updated: <b>${sm.updated || 0}</b> | Already Up-to-Date: <b>${sm.skipped || 0}</b>`;
+                } else {
+                    notice.style.background = '#fee2e2';
+                    notice.style.border = '1px solid #ef4444';
+                    notice.style.color = '#b91c1c';
+                    notice.innerHTML = `❌ Basketball Sync Failed: ${escapeHtml(data.message || 'Unknown error')}`;
+                }
+            } catch (err) {
+                notice.style.background = '#fee2e2';
+                notice.style.border = '1px solid #ef4444';
+                notice.style.color = '#b91c1c';
+                notice.innerHTML = `❌ Network Error during basketball sync: ${escapeHtml(err.message)}`;
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '🏀 Sync Basketball';
+                }
+            }
+        }
+
+        async function saveCalendarSelection() {
+            const saveBtn = document.getElementById('save-calendars-btn');
+            const notice = document.getElementById('calendar-sync-notice');
+
+            const selectedIds = availableCalendars.filter(c => c.selected).map(c => c.id);
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Saving...';
+            }
+
+            try {
+                const res = await fetch('/api/calendars', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ selected_calendar_ids: selectedIds })
+                });
+                const result = await res.json();
+
+                if (res.ok && result.status === 'success') {
+                    if (notice) {
+                        notice.style.display = 'block';
+                        notice.style.background = '#dcfce7';
+                        notice.style.border = '1px solid #22c55e';
+                        notice.style.color = '#15803d';
+                        notice.innerHTML = `✅ Saved! Dashboard is syncing ${selectedIds.length} calendar(s). Refreshing dashboard view...`;
+                    }
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1200);
+                } else {
+                    throw new Error(result.message || 'Failed to save calendar selection');
+                }
+            } catch (err) {
+                alert('Error saving calendar settings: ' + err.message);
+            } finally {
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = '💾 Save & Sync Calendars';
+                }
+            }
+        }
 
         function toggleRadarView(show) {
             const bottomSection = document.getElementById('bottom-section');

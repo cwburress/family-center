@@ -3,6 +3,8 @@
 token.json
 Credentials.json
 credentials.json
+calendar_settings.json
+basketball_config.json
 
 # Python Environments
 venv/

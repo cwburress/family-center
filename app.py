@@ -111,7 +111,35 @@ def get_radar_coordinates():
     except Exception:
         return 0.0, 0.0
 
-SCOPES = ['https://www.googleapis.com/auth/calendar.events']
+SCOPES = [
+    'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/calendar.events'
+]
+CALENDAR_SETTINGS_FILE = os.path.join(BASE_DIR, 'calendar_settings.json')
+
+def load_calendar_settings():
+    if os.path.exists(CALENDAR_SETTINGS_FILE):
+        try:
+            with open(CALENDAR_SETTINGS_FILE, 'r') as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    if "selected_calendar_ids" not in data:
+                        data["selected_calendar_ids"] = [CALENDAR_ID] if CALENDAR_ID else ["primary"]
+                    return data
+        except Exception as e:
+            print(f"[WARN] Error loading {CALENDAR_SETTINGS_FILE}: {e}")
+    default_ids = [CALENDAR_ID] if CALENDAR_ID else ["primary"]
+    return {
+        "selected_calendar_ids": default_ids,
+        "calendar_metadata": {}
+    }
+
+def save_calendar_settings(settings):
+    try:
+        with open(CALENDAR_SETTINGS_FILE, 'w') as f:
+            json.dump(settings, f, indent=2)
+    except Exception as e:
+        print(f"[ERROR] Failed to save {CALENDAR_SETTINGS_FILE}: {e}")
 THEME = os.getenv('THEME', 'default')
 CALENDAR_ID = os.getenv('FAMILY_CALENDAR_ID', 'primary')
 HOME_LAT = os.getenv('HOME_LAT', '0.0')
@@ -130,8 +158,9 @@ UI_REFRESH = int(os.getenv('UI_REFRESH_MINUTES', 5)) * 60000  # milliseconds for
 # ==========================================
 def get_events():
     creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    token_file = os.path.join(BASE_DIR, 'token.json')
+    if os.path.exists(token_file):
+        creds = Credentials.from_authorized_user_file(token_file, SCOPES)
 
     # Auto-refresh the token if it expires
     if not creds or not creds.valid:
@@ -148,12 +177,41 @@ def get_events():
         service = build('calendar', 'v3', credentials=creds)
         now = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
         
-        # Pull the next 30 events to ensure we have enough for both views
-        events_result = service.events().list(calendarId=CALENDAR_ID, timeMin=now,
-                                              maxResults=30, singleEvents=True,
-                                              orderBy='startTime').execute()
-        
-        raw_events = events_result.get('items', [])
+        cal_settings = load_calendar_settings()
+        selected_ids = cal_settings.get('selected_calendar_ids', [])
+        if not selected_ids:
+            selected_ids = [CALENDAR_ID] if CALENDAR_ID else ['primary']
+
+        raw_events = []
+        seen_event_keys = set()
+
+        for cid in selected_ids:
+            try:
+                events_result = service.events().list(
+                    calendarId=cid,
+                    timeMin=now,
+                    maxResults=30,
+                    singleEvents=True,
+                    orderBy='startTime'
+                ).execute()
+                for ev in events_result.get('items', []):
+                    st = ev.get('start', {})
+                    start_str = st.get('dateTime') or st.get('date') or ''
+                    summary_clean = (ev.get('summary') or '').strip().lower()
+                    dedup_key = (start_str, summary_clean)
+                    if dedup_key not in seen_event_keys:
+                        seen_event_keys.add(dedup_key)
+                        ev['_source_calendar_id'] = cid
+                        raw_events.append(ev)
+            except Exception as cal_err:
+                print(f"[WARN] Error fetching events from calendar '{cid}': {cal_err}")
+
+        # Re-sort all combined events chronologically by start time
+        def _get_sort_time(ev):
+            st = ev.get('start', {})
+            return st.get('dateTime') or st.get('date') or ''
+
+        raw_events.sort(key=_get_sort_time)
         future_events = []
         
         # Build the 4-day focus window starting from today
@@ -251,7 +309,8 @@ def get_events():
                     'full_date': full_date,
                     'is_today': is_today,
                     'description': event.get('description', ''),
-                    'location': event.get('location', '')
+                    'location': event.get('location', ''),
+                    'calendar_id': event.get('_source_calendar_id', '')
                 }
                 
                 # Sort events into Today vs Future Schedule
@@ -747,6 +806,26 @@ threading.Thread(target=poll_service, args=('weather', get_weather, WX_POLL), da
 threading.Thread(target=poll_service, args=('lunch', get_lunch_menu, LUNCH_POLL), daemon=True).start()
 threading.Thread(target=poll_service, args=('activity', get_school_activity, ACTIVITY_POLL), daemon=True).start()
 
+try:
+    from sync_basketball import sync_basketball_games
+except ImportError:
+    sync_basketball_games = None
+
+def basketball_sync_loop():
+    time.sleep(15)
+    while True:
+        try:
+            if sync_basketball_games:
+                print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Running automatic basketball sync...")
+                res = sync_basketball_games(dry_run=False)
+                if res.get('created') or res.get('updated'):
+                    refresh_events_cache()
+        except Exception as e:
+            print(f"[Basketball Sync Daemon Error]: {e}")
+        time.sleep(3600)
+
+threading.Thread(target=basketball_sync_loop, daemon=True).start()
+
 if os.getenv('AUTO_LOCATION_ENABLED', 'true').lower() in ('true', '1', 'yes'):
     try:
         from location_resolver import start_location_resolver_daemon
@@ -818,6 +897,121 @@ def index():
         clothing_enabled=is_clothing_enabled(),
         entree_images=load_entree_images()
     )
+
+@app.route('/api/calendars', methods=['GET', 'POST'])
+def api_calendars():
+    if request.method == 'POST':
+        try:
+            data = request.json or {}
+            selected_ids = data.get('selected_calendar_ids')
+            if not isinstance(selected_ids, list):
+                return jsonify({"status": "error", "message": "selected_calendar_ids must be a list"}), 400
+            
+            settings = load_calendar_settings()
+            settings['selected_calendar_ids'] = selected_ids
+            if 'calendar_metadata' in data and isinstance(data['calendar_metadata'], dict):
+                settings['calendar_metadata'].update(data['calendar_metadata'])
+            save_calendar_settings(settings)
+
+            # Force immediate cache update across threads
+            threading.Thread(target=refresh_events_cache, daemon=True).start()
+
+            return jsonify({
+                "status": "success",
+                "message": f"Successfully updated {len(selected_ids)} calendar(s)",
+                "selected_calendar_ids": selected_ids
+            })
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    # GET request
+    creds = None
+    token_file = os.path.join(BASE_DIR, 'token.json')
+    if os.path.exists(token_file):
+        creds = Credentials.from_authorized_user_file(token_file, SCOPES)
+
+    if not creds or not creds.valid:
+        try:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                return jsonify({
+                    "status": "needs_reauth",
+                    "error_type": "no_token",
+                    "message": "Authentication token missing or invalid. Please run 'python get_token.py' in the familycenter folder."
+                }), 401
+        except Exception as e:
+            return jsonify({
+                "status": "needs_reauth",
+                "error_type": "token_expired",
+                "message": f"Token expired or refresh failed: {e}. Please run 'python get_token.py'."
+            }), 401
+
+    try:
+        service = build('calendar', 'v3', credentials=creds)
+        cal_list_res = service.calendarList().list().execute()
+        items = cal_list_res.get('items', [])
+
+        settings = load_calendar_settings()
+        selected_ids = set(settings.get('selected_calendar_ids', []))
+        if not selected_ids and CALENDAR_ID:
+            selected_ids = {CALENDAR_ID}
+
+        calendars = []
+        for c in items:
+            cid = c.get('id')
+            is_primary = c.get('primary', False)
+            calendars.append({
+                "id": cid,
+                "summary": c.get('summary', 'Untitled Calendar'),
+                "description": c.get('description', ''),
+                "primary": is_primary,
+                "backgroundColor": c.get('backgroundColor', '#1a73e8'),
+                "foregroundColor": c.get('foregroundColor', '#ffffff'),
+                "accessRole": c.get('accessRole', ''),
+                "selected": (cid in selected_ids) or (is_primary and not selected_ids)
+            })
+
+        # Sort: primary first, then alphabetical
+        calendars.sort(key=lambda x: (not x['primary'], x['summary'].lower()))
+
+        return jsonify({
+            "status": "success",
+            "calendars": calendars,
+            "selected_calendar_ids": list(selected_ids)
+        })
+    except Exception as e:
+        err_str = str(e)
+        if "insufficientPermissions" in err_str or "Request had insufficient authentication scopes" in err_str:
+            return jsonify({
+                "status": "needs_reauth",
+                "error_type": "insufficient_scope",
+                "message": "Google permissions need to be updated to list calendars. Run 'python get_token.py' in familycenter to re-authorize with calendar list access."
+            }), 403
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to retrieve calendars: {err_str}"
+        }), 500
+
+@app.route('/api/sync-basketball', methods=['POST', 'GET'])
+def api_sync_basketball():
+    if not sync_basketball_games:
+        return jsonify({"status": "error", "message": "sync_basketball module not available"}), 500
+    try:
+        results = sync_basketball_games(dry_run=False)
+        refresh_events_cache()
+        return jsonify({
+            "status": "success",
+            "summary": {
+                "created": len(results.get('created', [])),
+                "updated": len(results.get('updated', [])),
+                "skipped": len(results.get('skipped', [])),
+                "errors": len(results.get('errors', []))
+            },
+            "details": results
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/bg-settings', methods=['GET', 'POST'])
 def bg_settings():

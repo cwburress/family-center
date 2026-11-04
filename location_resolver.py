@@ -43,7 +43,10 @@ except ImportError:
                     k, v = line.split('=', 1)
                     os.environ.setdefault(k.strip(), v.strip())
 
-SCOPES = ['https://www.googleapis.com/auth/calendar.events']
+SCOPES = [
+    'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/calendar.events'
+]
 CALENDAR_ID = os.getenv('FAMILY_CALENDAR_ID', 'primary')
 TIMEZONE = os.getenv('TIMEZONE', 'America/Chicago')
 CAL_POLL_MINUTES = int(os.getenv('CALENDAR_POLL_MINUTES', 5))
