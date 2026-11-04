@@ -151,6 +151,7 @@ CAL_POLL = int(os.getenv('CALENDAR_POLL_MINUTES', 5)) * 60
 WX_POLL = int(os.getenv('WEATHER_POLL_MINUTES', 5)) * 60
 LUNCH_POLL = int(os.getenv('LUNCH_POLL_MINUTES', 60)) * 60
 ACTIVITY_POLL = int(os.getenv('ACTIVITY_POLL_MINUTES', 60)) * 60
+BASKETBALL_SYNC_POLL = int(os.getenv('BASKETBALL_SYNC_MINUTES', 10)) * 60
 UI_REFRESH = int(os.getenv('UI_REFRESH_MINUTES', 5)) * 60000  # milliseconds for JS
 
 # ==========================================
@@ -822,7 +823,7 @@ def basketball_sync_loop():
                     refresh_events_cache()
         except Exception as e:
             print(f"[Basketball Sync Daemon Error]: {e}")
-        time.sleep(3600)
+        time.sleep(BASKETBALL_SYNC_POLL)
 
 threading.Thread(target=basketball_sync_loop, daemon=True).start()
 
