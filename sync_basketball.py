@@ -82,21 +82,10 @@ def get_calendar_service():
             raise PermissionError("Credentials invalid or expired. Re-run get_token.py.")
     return build('calendar', 'v3', credentials=creds)
 
-def clean_opponent(opp_str):
-    """
-    Strips coach suffix if present.
-    'Farmington - Brown' -> 'Farmington'
-    'Bentonville West - Rooney' -> 'Bentonville West'
-    """
-    opp = opp_str.strip()
-    if ' - ' in opp:
-        parts = opp.split(' - ')
-        return parts[0].strip()
-    return opp
-
 def transform_title(daughter, team_pattern, our_team_display, raw_summary):
     """
     Transforms raw summary into '🏀 <Daughter>: Alma vs <Opponent>'
+    Keeps opponent coach name intact (e.g. 'Farmington - Brown', 'Bentonville - Rivard').
     """
     raw = (raw_summary or '').strip()
     vs_match = re.split(r'\s+vs\.?\s+', raw, flags=re.IGNORECASE)
@@ -104,22 +93,22 @@ def transform_title(daughter, team_pattern, our_team_display, raw_summary):
     if len(vs_match) == 2:
         part_a, part_b = vs_match[0].strip(), vs_match[1].strip()
         if re.search(team_pattern, part_a, flags=re.IGNORECASE):
-            opponent = clean_opponent(part_b)
+            opponent = part_b
             return f"🏀 {daughter}: {our_team_display} vs {opponent}"
         elif re.search(team_pattern, part_b, flags=re.IGNORECASE):
-            opponent = clean_opponent(part_a)
+            opponent = part_a
             return f"🏀 {daughter}: {our_team_display} vs {opponent}"
         else:
-            return f"🏀 {daughter}: {clean_opponent(part_a)} vs {clean_opponent(part_b)}"
+            return f"🏀 {daughter}: {part_a} vs {part_b}"
     
     at_match = re.split(r'\s+@\s+', raw)
     if len(at_match) == 2:
         part_a, part_b = at_match[0].strip(), at_match[1].strip()
         if re.search(team_pattern, part_a, flags=re.IGNORECASE):
-            opponent = clean_opponent(part_b)
+            opponent = part_b
             return f"🏀 {daughter}: {our_team_display} vs {opponent}"
         elif re.search(team_pattern, part_b, flags=re.IGNORECASE):
-            opponent = clean_opponent(part_a)
+            opponent = part_a
             return f"🏀 {daughter}: {our_team_display} vs {opponent}"
 
     cleaned = re.sub(team_pattern, our_team_display, raw, flags=re.IGNORECASE).strip()
