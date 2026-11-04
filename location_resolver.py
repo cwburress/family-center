@@ -199,6 +199,9 @@ def deduce_location(title, description=""):
 
 def process_calendar_events(dry_run=False, service=None, on_update_callback=None):
     """Scan upcoming events on Google Calendar and add deduced locations & title markers."""
+    if os.getenv('AUTO_LOCATION_ENABLED', 'false').lower() not in ('true', '1', 'yes'):
+        logger.info("Location resolver is disabled via AUTO_LOCATION_ENABLED=false.")
+        return
     if not service and not dry_run:
         if not os.path.exists(TOKEN_PATH):
             logger.error(f"token.json missing at '{TOKEN_PATH}'. Cannot connect to Google Calendar API.")

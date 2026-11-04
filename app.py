@@ -55,7 +55,7 @@ def load_bg_settings():
                 if "enable_radar" not in settings:
                     settings["enable_radar"] = True
                 if "enable_location_resolver" not in settings:
-                    settings["enable_location_resolver"] = True
+                    settings["enable_location_resolver"] = False
                 if "enable_clothing" not in settings:
                     settings["enable_clothing"] = True
                 if "radar_coords" not in settings:
@@ -836,7 +836,8 @@ def basketball_sync_loop():
 
 threading.Thread(target=basketball_sync_loop, daemon=True).start()
 
-if os.getenv('AUTO_LOCATION_ENABLED', 'true').lower() in ('true', '1', 'yes'):
+# Location resolver daemon is disabled to prevent guessing/overwriting calendar event locations
+if os.getenv('AUTO_LOCATION_ENABLED', 'false').lower() in ('true', '1', 'yes'):
     try:
         from location_resolver import start_location_resolver_daemon
         start_location_resolver_daemon(offset_seconds=60, on_update_callback=refresh_events_cache)
