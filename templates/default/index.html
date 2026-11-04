@@ -1110,6 +1110,23 @@
                     <!-- Notice banner -->
                     <div id="calendar-sync-notice" style="display: none; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem; line-height: 1.4;"></div>
 
+                    <!-- Basketball auto-sync interval setting -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 8px;">
+                        <div>
+                            <strong style="color: #3c4043; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
+                                🏀 Basketball Auto-Sync
+                            </strong>
+                            <div style="font-size: 0.8rem; color: #70757a; margin-top: 2px;">
+                                Automatically sync subscribed league schedules into Google Family Calendar
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                            <label for="basketball-sync-minutes-input" style="font-size: 0.85rem; color: #5f6368; font-weight: 500;">Every</label>
+                            <input type="number" id="basketball-sync-minutes-input" min="1" max="1440" step="1" value="10" style="width: 65px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; text-align: center; font-weight: 600; color: #202124;">
+                            <span style="font-size: 0.85rem; color: #5f6368; font-weight: 500;">min</span>
+                        </div>
+                    </div>
+
                     <!-- Calendars list -->
                     <div id="calendar-list-container" style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px;">
                         <div style="text-align: center; padding: 25px; color: #70757a; font-size: 0.9rem;">Loading available calendars from Google...</div>
@@ -2064,6 +2081,10 @@
 
                 notice.style.display = 'none';
                 availableCalendars = data.calendars || [];
+                if (data.basketball_sync_minutes !== undefined) {
+                    const minsInput = document.getElementById('basketball-sync-minutes-input');
+                    if (minsInput) minsInput.value = data.basketball_sync_minutes;
+                }
 
                 if (availableCalendars.length === 0) {
                     container.innerHTML = '<div style="text-align: center; padding: 25px; color: #70757a;">No calendars found on this Google account.</div>';
@@ -2182,6 +2203,9 @@
             const notice = document.getElementById('calendar-sync-notice');
 
             const selectedIds = availableCalendars.filter(c => c.selected).map(c => c.id);
+            const minsInput = document.getElementById('basketball-sync-minutes-input');
+            const syncMins = minsInput ? parseInt(minsInput.value, 10) || 10 : 10;
+
             if (saveBtn) {
                 saveBtn.disabled = true;
                 saveBtn.textContent = 'Saving...';
@@ -2191,7 +2215,10 @@
                 const res = await fetch('/api/calendars', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ selected_calendar_ids: selectedIds })
+                    body: JSON.stringify({
+                        selected_calendar_ids: selectedIds,
+                        basketball_sync_minutes: syncMins
+                    })
                 });
                 const result = await res.json();
 

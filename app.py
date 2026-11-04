@@ -118,6 +118,7 @@ SCOPES = [
 CALENDAR_SETTINGS_FILE = os.path.join(BASE_DIR, 'calendar_settings.json')
 
 def load_calendar_settings():
+    default_sync_mins = int(os.getenv('BASKETBALL_SYNC_MINUTES', 10))
     if os.path.exists(CALENDAR_SETTINGS_FILE):
         try:
             with open(CALENDAR_SETTINGS_FILE, 'r') as f:
@@ -125,12 +126,15 @@ def load_calendar_settings():
                 if isinstance(data, dict):
                     if "selected_calendar_ids" not in data:
                         data["selected_calendar_ids"] = [CALENDAR_ID] if CALENDAR_ID else ["primary"]
+                    if "basketball_sync_minutes" not in data:
+                        data["basketball_sync_minutes"] = default_sync_mins
                     return data
         except Exception as e:
             print(f"[WARN] Error loading {CALENDAR_SETTINGS_FILE}: {e}")
     default_ids = [CALENDAR_ID] if CALENDAR_ID else ["primary"]
     return {
         "selected_calendar_ids": default_ids,
+        "basketball_sync_minutes": default_sync_mins,
         "calendar_metadata": {}
     }
 
@@ -823,7 +827,12 @@ def basketball_sync_loop():
                     refresh_events_cache()
         except Exception as e:
             print(f"[Basketball Sync Daemon Error]: {e}")
-        time.sleep(BASKETBALL_SYNC_POLL)
+        
+        cal_settings = load_calendar_settings()
+        sync_mins = int(cal_settings.get('basketball_sync_minutes', 10))
+        if sync_mins < 1:
+            sync_mins = 1
+        time.sleep(sync_mins * 60)
 
 threading.Thread(target=basketball_sync_loop, daemon=True).start()
 
@@ -905,11 +914,21 @@ def api_calendars():
         try:
             data = request.json or {}
             selected_ids = data.get('selected_calendar_ids')
-            if not isinstance(selected_ids, list):
-                return jsonify({"status": "error", "message": "selected_calendar_ids must be a list"}), 400
-            
+            sync_minutes = data.get('basketball_sync_minutes')
             settings = load_calendar_settings()
-            settings['selected_calendar_ids'] = selected_ids
+
+            if isinstance(selected_ids, list):
+                settings['selected_calendar_ids'] = selected_ids
+
+            if sync_minutes is not None:
+                try:
+                    s_val = int(sync_minutes)
+                    if s_val < 1:
+                        s_val = 1
+                    settings['basketball_sync_minutes'] = s_val
+                except (ValueError, TypeError):
+                    pass
+
             if 'calendar_metadata' in data and isinstance(data['calendar_metadata'], dict):
                 settings['calendar_metadata'].update(data['calendar_metadata'])
             save_calendar_settings(settings)
@@ -919,8 +938,9 @@ def api_calendars():
 
             return jsonify({
                 "status": "success",
-                "message": f"Successfully updated {len(selected_ids)} calendar(s)",
-                "selected_calendar_ids": selected_ids
+                "message": "Successfully updated calendar settings",
+                "selected_calendar_ids": settings.get('selected_calendar_ids', []),
+                "basketball_sync_minutes": settings.get('basketball_sync_minutes', 10)
             })
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
@@ -957,6 +977,7 @@ def api_calendars():
         selected_ids = set(settings.get('selected_calendar_ids', []))
         if not selected_ids and CALENDAR_ID:
             selected_ids = {CALENDAR_ID}
+        basketball_sync_minutes = settings.get('basketball_sync_minutes', int(os.getenv('BASKETBALL_SYNC_MINUTES', 10)))
 
         calendars = []
         for c in items:
@@ -979,7 +1000,8 @@ def api_calendars():
         return jsonify({
             "status": "success",
             "calendars": calendars,
-            "selected_calendar_ids": list(selected_ids)
+            "selected_calendar_ids": list(selected_ids),
+            "basketball_sync_minutes": basketball_sync_minutes
         })
     except Exception as e:
         err_str = str(e)
