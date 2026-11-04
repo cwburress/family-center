@@ -19,3 +19,7 @@
 
 ## 5. Deployment & Git Commit Order Rule
 - **Deployment Order**: ALWAYS deploy and sync files to the production server and test/verify BEFORE committing or pushing to GitHub (`origin/main`). Pushing to GitHub must ALWAYS be the final step after server deployment is complete.
+
+## 6. Windows Server Modification Safeguard (Strict Read-Only)
+- **Zero Server Changes:** You are NEVER to make changes, apply configurations, install/modify services, restart processes, or alter files/settings on any of our Windows Servers.
+- **Strict Read-Only Discovery:** All investigations, audits, or questions regarding Windows Servers must be 100% read-only discovery (diagnostics, status inspection, event log queries, and reporting only).
