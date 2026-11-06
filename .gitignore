@@ -13,6 +13,8 @@ __pycache__/
 
 # Editor Backups
 *~
+*.lock
+.basketball_sync.lock
 
 # OS Files
 /static/background.jpg

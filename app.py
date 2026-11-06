@@ -816,14 +816,32 @@ try:
 except ImportError:
     sync_basketball_games = None
 
+_basketball_sync_lock_fp = None
+
 def basketball_sync_loop():
+    global _basketball_sync_lock_fp
+    # Attempt to acquire an exclusive lock so only ONE Gunicorn worker runs the daemon
+    try:
+        import fcntl
+        lock_path = os.path.join(BASE_DIR, '.basketball_sync.lock')
+        _basketball_sync_lock_fp = open(lock_path, 'w')
+        try:
+            fcntl.flock(_basketball_sync_lock_fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            print("[INFO] Acquired basketball sync lock (primary worker).")
+        except (IOError, BlockingIOError):
+            print("[INFO] Basketball sync daemon already active in another worker. Skipping in this worker.")
+            return
+    except ImportError:
+        # Non-POSIX systems (e.g. Windows dev)
+        pass
+
     time.sleep(15)
     while True:
         try:
             if sync_basketball_games:
                 print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Running automatic basketball sync...")
                 res = sync_basketball_games(dry_run=False)
-                if res.get('created') or res.get('updated'):
+                if res.get('created') or res.get('updated') or res.get('deleted'):
                     refresh_events_cache()
         except Exception as e:
             print(f"[Basketball Sync Daemon Error]: {e}")
@@ -1030,6 +1048,7 @@ def api_sync_basketball():
                 "created": len(results.get('created', [])),
                 "updated": len(results.get('updated', [])),
                 "skipped": len(results.get('skipped', [])),
+                "deleted": len(results.get('deleted', [])),
                 "errors": len(results.get('errors', []))
             },
             "details": results

@@ -10,6 +10,9 @@ Examples:
 Preserves game locations (Centerton, Fayetteville, etc.) and court details.
 Uses extendedProperties and description tags to prevent duplicate events
 and keep updates in sync automatically.
+Performs two-way reconciliation:
+  - Deletes duplicate sync entries if any occur.
+  - Automatically deletes / purges orphaned games when league changes game times or cancels games.
 """
 
 import os
@@ -177,12 +180,17 @@ def is_game_placeholder(summary, daughter):
 def sync_basketball_games(dry_run=False, days_ahead=90, dest_calendar_id=None, adopt_placeholders=True):
     """
     Syncs subscribed basketball schedules into Google Family Calendar.
+    Performs full two-way reconciliation:
+      - Inserts new games
+      - Updates changed games
+      - Deletes duplicates
+      - Deletes orphaned / moved games
     Returns summary statistics.
     """
     teams = load_basketball_teams()
     if not teams:
         print("[Basketball Sync] No teams configured in basketball_config.json or environment.")
-        return {"created": [], "updated": [], "skipped": [], "errors": ["No teams configured"]}
+        return {"created": [], "updated": [], "deleted": [], "skipped": [], "errors": ["No teams configured"]}
 
     service = get_calendar_service()
     dest_cal = dest_calendar_id or DEFAULT_DEST_CALENDAR
@@ -195,7 +203,42 @@ def sync_basketball_games(dry_run=False, days_ahead=90, dest_calendar_id=None, a
     print(f"[Basketball Sync] Checking Family Calendar: {dest_cal}")
     print(f"[Basketball Sync] Window: {time_min} to {time_max} (dry_run={dry_run}, adopt_placeholders={adopt_placeholders})")
 
-    # Fetch existing events from destination calendar in time window
+    results = {
+        "created": [],
+        "updated": [],
+        "deleted": [],
+        "skipped": [],
+        "errors": []
+    }
+
+    # STEP 1: Fetch active events from all source calendars
+    source_events_by_cal = {}
+    all_active_source_ids = set()
+
+    for team in teams:
+        cal_id = team.get('calendar_id')
+        daughter = team.get('daughter', '')
+        if not cal_id or not daughter:
+            continue
+        try:
+            src_res = service.events().list(
+                calendarId=cal_id,
+                timeMin=time_min,
+                timeMax=time_max,
+                singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+            items = src_res.get('items', [])
+            source_events_by_cal[cal_id] = items
+            for item in items:
+                all_active_source_ids.add(item['id'])
+            print(f"[Basketball Sync] Found {len(items)} active league events for {daughter}.")
+        except Exception as e:
+            err = f"Failed to fetch source calendar {cal_id}: {e}"
+            print(f"[ERROR] {err}")
+            results['errors'].append(err)
+
+    # STEP 2: Fetch all events from destination (Family) calendar in window
     dest_events = []
     page_token = None
     while True:
@@ -211,7 +254,7 @@ def sync_basketball_games(dry_run=False, days_ahead=90, dest_calendar_id=None, a
         if not page_token:
             break
 
-    # Build lookup indices for destination events
+    # STEP 3: Identify duplicates and orphaned/moved games on Family Calendar
     synced_by_source_id = {}
     synced_by_norm_time_title = {}
     placeholders_by_norm_time = {}
@@ -224,15 +267,57 @@ def sync_basketball_games(dry_run=False, days_ahead=90, dest_calendar_id=None, a
         dev_desc = dev.get('description') or ''
         dev_props = dev.get('extendedProperties', {}).get('private', {})
 
-        source_id = dev_props.get('source_event_id')
-        if not source_id and 'source_id:' in dev_desc:
-            match = re.search(r'source_id:\s*([^\s-]+(?:_[^\s-]+)?)', dev_desc)
-            if match:
-                source_id = match.group(1).strip()
+        is_our_sync = (
+            dev_props.get('sync_source') == 'girls_basketball_sync' or
+            'sync_source: girls_basketball_sync' in dev_desc
+        )
 
-        if source_id:
-            synced_by_source_id[source_id] = dev
-        
+        source_id = dev_props.get('source_event_id')
+        source_cal = dev_props.get('source_cal_id')
+        if not source_id and 'source_id:' in dev_desc:
+            m = re.search(r'source_id:\s*([^\s-]+(?:_[^\s-]+)?)', dev_desc)
+            if m:
+                source_id = m.group(1).strip()
+        if not source_cal and 'source_cal:' in dev_desc:
+            m = re.search(r'source_cal:\s*([^\s|]+)', dev_desc)
+            if m:
+                source_cal = m.group(1).strip()
+
+        if is_our_sync:
+            # 3a. Check for duplicate of the same source_id
+            if source_id and source_id in synced_by_source_id:
+                print(f"  [DELETE DUPLICATE] Removing duplicate event '{dev_summary}' ({dev_id}) for source_id '{source_id}'")
+                if not dry_run:
+                    try:
+                        service.events().delete(calendarId=dest_cal, eventId=dev_id).execute()
+                        results['deleted'].append({'id': dev_id, 'title': dev_summary, 'reason': 'Duplicate'})
+                    except Exception as del_err:
+                        print(f"  [ERROR] Failed to delete duplicate {dev_id}: {del_err}")
+                        results['errors'].append(str(del_err))
+                else:
+                    results['deleted'].append({'id': dev_id, 'title': dev_summary, 'reason': 'Duplicate', 'dry_run': True})
+                continue
+
+            # 3b. Check for orphaned/moved game (source_id no longer in active source calendar)
+            if source_cal in source_events_by_cal:
+                if source_id and source_id not in all_active_source_ids:
+                    print(f"  [DELETE ORPHAN] Removing cancelled/moved game '{dev_summary}' ({dev_id}) at {raw_start}")
+                    if not dry_run:
+                        try:
+                            service.events().delete(calendarId=dest_cal, eventId=dev_id).execute()
+                            results['deleted'].append({'id': dev_id, 'title': dev_summary, 'reason': 'Game moved or cancelled'})
+                        except Exception as del_err:
+                            print(f"  [ERROR] Failed to delete orphan {dev_id}: {del_err}")
+                            results['errors'].append(str(del_err))
+                    else:
+                        results['deleted'].append({'id': dev_id, 'title': dev_summary, 'reason': 'Game moved or cancelled', 'dry_run': True})
+                    continue
+
+            # Event is valid and kept
+            if source_id:
+                synced_by_source_id[source_id] = dev
+
+        # Non-duplicate index lookups
         clean_summary = dev_summary.replace('📍', '').strip()
         if norm_start and clean_summary:
             synced_by_norm_time_title[(norm_start, clean_summary.lower())] = dev
@@ -240,40 +325,14 @@ def sync_basketball_games(dry_run=False, days_ahead=90, dest_calendar_id=None, a
         if norm_start and dev_summary:
             placeholders_by_norm_time.setdefault(norm_start, []).append(dev)
 
-    results = {
-        "created": [],
-        "updated": [],
-        "skipped": [],
-        "errors": []
-    }
-
-    # Iterate over configured teams
+    # STEP 4: Process active source events (insert or update)
     for team in teams:
         cal_id = team.get('calendar_id')
         daughter = team.get('daughter', '')
         team_pattern = team.get('team_pattern', '')
         team_display = team.get('team_display', 'Alma')
 
-        if not cal_id or not daughter:
-            continue
-
-        print(f"\n[Basketball Sync] Fetching events for {daughter} from {cal_id}...")
-        
-        try:
-            src_res = service.events().list(
-                calendarId=cal_id,
-                timeMin=time_min,
-                timeMax=time_max,
-                singleEvents=True,
-                orderBy='startTime'
-            ).execute()
-            src_items = src_res.get('items', [])
-            print(f"[Basketball Sync] Found {len(src_items)} league events for {daughter}.")
-        except Exception as e:
-            err = f"Failed to fetch calendar {cal_id}: {e}"
-            print(f"[ERROR] {err}")
-            results['errors'].append(err)
-            continue
+        src_items = source_events_by_cal.get(cal_id, [])
 
         for sev in src_items:
             sev_id = sev.get('id')
@@ -419,6 +478,7 @@ def sync_basketball_games(dry_run=False, days_ahead=90, dest_calendar_id=None, a
     print(f"\n[Basketball Sync Summary]")
     print(f"  Created: {len(results['created'])}")
     print(f"  Updated: {len(results['updated'])}")
+    print(f"  Deleted: {len(results['deleted'])}")
     print(f"  Skipped: {len(results['skipped'])}")
     print(f"  Errors:  {len(results['errors'])}")
     return results
